@@ -126,12 +126,33 @@
 
   const formatPct = (x) => Number.isFinite(x) ? `${(x*100).toFixed(3)}%` : "";
 
+  // Number formatting for inputs: comma thousands + dot decimals (force en-US style)
+  const formatNumberInput = (n, maxDecimals = 2) => {
+    if (!Number.isFinite(n)) return "";
+    const dec = Math.max(0, Math.min(12, maxDecimals));
+    return new Intl.NumberFormat("en-US", {
+      useGrouping: true,
+      maximumFractionDigits: dec,
+    }).format(n);
+  };
+
+  const parseNumberInput = (s) => {
+    if (s == null) return 0;
+    const cleaned = String(s)
+      .trim()
+      .replace(/,/g, "")
+      .replace(/[^0-9.\-]/g, "");
+    if (cleaned === "" || cleaned === "-" || cleaned === ".") return 0;
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+  };
+
   const makeMoneyFormatter = (currency, customCode) => {
     const code = currency === "CUSTOM" ? (customCode || "USD") : currency;
     return (n) => {
       if (!Number.isFinite(n)) return "";
       try {
-        return new Intl.NumberFormat(undefined, {
+        return new Intl.NumberFormat("en-US", {
           style: "currency",
           currency: code,
           maximumFractionDigits: code === "VND" ? 0 : 2,
@@ -166,7 +187,7 @@
 
   const buildAmortization = (inputs, schedule) => {
     const sched = normalizeSchedule(schedule);
-    const nTotal = Math.floor(inputs.termYears * inputs.paymentsPerYear);
+    const nTotal = getTermPeriods(inputs);
     const ppY = inputs.paymentsPerYear;
     const graceMonths = inputs.graceEnabled ? Math.max(0, Math.floor(inputs.graceMonths)) : 0;
 
@@ -277,7 +298,8 @@
     inputs: {
       principal: 2_000_000_000,
       startDateISO: "2026-01-01",
-      termYears: 20,
+      termUnit: "years", // years | months
+      termValue: 20,
       paymentsPerYear: 12,
       extraPaymentMonthly: 0,
 
@@ -452,6 +474,49 @@
       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />`;
   }
 
+  // Term input: number + unit dropdown (years/months)
+  function termInput(valueId, unitId){
+    return `
+      <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
+        <input id="${valueId}" type="number" min="1"
+          class="h-10 w-full bg-transparent px-3 text-sm text-slate-900 outline-none" />
+        <div class="border-l border-slate-200 bg-slate-50 px-2 flex items-center">
+          <select id="${unitId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
+            <option value="years">Years (max 30)</option>
+            <option value="months">Months (max 360)</option>
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
+  const getTermPeriods = (inputs) => {
+    const ppY = inputs.paymentsPerYear;
+    if (inputs.termUnit === "months") return clamp(Math.floor(inputs.termValue || 1), 1, 360);
+    const years = clamp(Number(inputs.termValue || 1), 1, 30);
+    return Math.min(Math.floor(years * ppY), 360);
+  };
+
+
+  // Money input: text field (formatted) + currency dropdown suffix
+  function moneyInput(id, currencySelectId, customCodeId){
+    return `
+      <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
+        <input id="${id}" inputmode="decimal" autocomplete="off" spellcheck="false"
+          class="h-10 w-full bg-transparent px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" />
+        <div class="flex items-center gap-2 border-l border-slate-200 bg-slate-50 px-2">
+          <select id="${currencySelectId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
+            <option value="VND">VND</option>
+            <option value="USD">USD</option>
+            <option value="EUR">EUR</option>
+            <option value="CUSTOM">Custom</option>
+          </select>
+          <input id="${customCodeId}" class="h-8 w-20 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100" placeholder="USD" />
+        </div>
+      </div>
+    `;
+  }
+
   function selectInput(id, options){
     return `
       <select id="${id}" class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100">
@@ -487,7 +552,7 @@
   }
 
   function autoYearlyBands(which){
-    const months = Math.floor(state.inputs.termYears * state.inputs.paymentsPerYear);
+    const months = getTermPeriods(state.inputs);
     const blocks = [];
     let start = 1;
     while(start <= months){
@@ -594,27 +659,22 @@
     // Inputs section
     const inputsHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        ${inputField("Principal","loan amount", textInput("principal","number","1000000","0"))}
+        ${inputField("Principal","loan amount", moneyInput("principal","currency_p","customCurrencyCode_p"))}
         ${inputField("Start date","YYYY-MM-DD", textInput("startDateISO","date"))}
-        ${inputField("Term (years)","", textInput("termYears","number","1","1"))}
+        ${inputField("Term","years or months", termInput("termValue","termUnit"))}
 
         ${inputField("Payments / year","12 for monthly", textInput("paymentsPerYear","number","1","1"))}
-        ${inputField("Extra payment / month","after grace", textInput("extraPaymentMonthly","number","100000","0"))}
+        ${inputField("Extra payment / month","after grace", moneyInput("extraPaymentMonthly","currency_e","customCurrencyCode_e"))}
         ${inputField("Scenario","", selectInput("scenario", [
           {value:"A", label:"A"},
           {value:"B", label:"B"},
         ]))}
 
-        ${inputField("Currency","", selectInput("currency", [
-          {value:"VND", label:"VND"},
-          {value:"USD", label:"USD"},
-          {value:"EUR", label:"EUR"},
-          {value:"CUSTOM", label:"Custom"},
-        ]))}
-        <div id="customCurrencyWrap" class="${state.inputs.currency === "CUSTOM" ? "" : "hidden"}">
-          ${inputField("Custom code (ISO)","", textInput("customCurrencyCode","text","","" ,"USD"))}
+        <div class="md:col-span-3">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
+            Money fields format with <b>comma</b> thousands and <b>dot</b> decimals after you leave the field.
+          </div>
         </div>
-        <div></div>
       </div>
     `;
 
@@ -632,7 +692,7 @@
         </div>
         <div class="flex flex-col gap-3">
           ${toggleButton("showPaymentJumps","Enable payment jump flagging")}
-          ${inputField("Jump threshold","", textInput("jumpThreshold","number","100000","0"))}
+          ${inputField("Jump threshold","", moneyInput("jumpThreshold","currency_j","customCurrencyCode_j"))}
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
             <div class="font-extrabold">How jump works</div>
             <div class="mt-1 text-xs text-slate-600">A row is tagged <b>jump</b> only when the interest rate changes and |Δpayment| ≥ threshold.</div>
@@ -825,28 +885,39 @@
 
     // Wire inputs
     // Inputs
-    setValue("principal", state.inputs.principal);
+    setMoneyValue("principal", state.inputs.principal, state.inputs.currency);
+    setCurrencyControls("currency_p","customCurrencyCode_p");
     setValue("startDateISO", state.inputs.startDateISO);
-    setValue("termYears", state.inputs.termYears);
+    setValue("termValue", state.inputs.termValue);
+    setValue("termUnit", state.inputs.termUnit);
     setValue("paymentsPerYear", state.inputs.paymentsPerYear);
-    setValue("extraPaymentMonthly", state.inputs.extraPaymentMonthly);
+    setMoneyValue("extraPaymentMonthly", state.inputs.extraPaymentMonthly, state.inputs.currency);
+    setCurrencyControls("currency_e","customCurrencyCode_e");
 
     setValue("scenario", state.inputs.scenario);
-    setValue("currency", state.inputs.currency);
-    const ccWrap = document.getElementById("customCurrencyWrap");
-    if (ccWrap) ccWrap.classList.toggle("hidden", state.inputs.currency !== "CUSTOM");
-    if (state.inputs.currency === "CUSTOM") setValue("customCurrencyCode", state.inputs.customCurrencyCode);
+    
 
-    onInput("principal", (v)=>{ state.inputs.principal = Math.max(0, Number(v)||0); render(); });
+    onCommit("principal", (v)=>{ state.inputs.principal = Math.max(0, parseNumberInput(v)); render(); });
     onInput("startDateISO", (v)=>{ state.inputs.startDateISO = v || state.inputs.startDateISO; render(); });
-    onInput("termYears", (v)=>{ state.inputs.termYears = clamp(Number(v)||1, 1, 60); render(); });
+    onInput("termValue", (v)=>{
+      const n = Number(v)||1;
+      if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(n), 1, 360);
+      else state.inputs.termValue = clamp(n, 1, 30);
+      render();
+    });
+
+    onInput("termUnit", (u)=>{
+      state.inputs.termUnit = (u === "months") ? "months" : "years";
+      if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(state.inputs.termValue||1), 1, 360);
+      else state.inputs.termValue = clamp(Number(state.inputs.termValue||1), 1, 30);
+      render();
+    });
     onInput("paymentsPerYear", (v)=>{ state.inputs.paymentsPerYear = clamp(Number(v)||12, 1, 365); render(); });
-    onInput("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, Number(v)||0); render(); });
+    onCommit("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, parseNumberInput(v)); render(); });
 
     onInput("scenario", (v)=>{ state.inputs.scenario = v === "B" ? "B" : "A"; render(); });
-    onInput("currency", (v)=>{ state.inputs.currency = v; render(); });
-    const cc = document.getElementById("customCurrencyCode");
-    if (cc) cc.addEventListener("input", (e)=>{ state.inputs.customCurrencyCode = (e.target.value||"").toUpperCase(); render(); });
+    
+    
 
     // Grace + jumps
     wireToggle("graceEnabled", state.inputs.graceEnabled, (nv)=>{ state.inputs.graceEnabled = nv; render(); });
@@ -857,8 +928,9 @@
     wireToggle("capitalizeFullGraceInterest", state.inputs.capitalizeFullGraceInterest, (nv)=>{ state.inputs.capitalizeFullGraceInterest = nv; render(); });
 
     wireToggle("showPaymentJumps", state.inputs.showPaymentJumps, (nv)=>{ state.inputs.showPaymentJumps = nv; render(); });
-    setValue("jumpThreshold", state.inputs.jumpThreshold);
-    onInput("jumpThreshold", (v)=>{ state.inputs.jumpThreshold = Math.max(0, Number(v)||0); render(); });
+    setMoneyValue("jumpThreshold", state.inputs.jumpThreshold, state.inputs.currency);
+    setCurrencyControls("currency_j","customCurrencyCode_j");
+    onCommit("jumpThreshold", (v)=>{ state.inputs.jumpThreshold = Math.max(0, parseNumberInput(v)); render(); });
 
     // Schedules events
     document.querySelectorAll("[data-add-band]").forEach(btn => {
@@ -932,6 +1004,43 @@
   function setValue(id, value){
     const el = document.getElementById(id);
     if (el) el.value = value;
+  }
+
+  function setMoneyValue(id, value, currency){
+    const el = document.getElementById(id);
+    if (!el) return;
+    const maxDec = (currency === "VND") ? 0 : 2;
+    el.value = formatNumberInput(Number(value) || 0, maxDec);
+  }
+
+  // For formatted money fields: only commit on blur/change (avoid fighting cursor)
+  function onCommit(id, fn){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", (e) => fn(e.target.value));
+    el.addEventListener("blur", (e) => fn(e.target.value));
+  }
+
+  // Wire currency controls (used in multiple money inputs)
+  function setCurrencyControls(selectId, customId){
+    const sel = document.getElementById(selectId);
+    const custom = document.getElementById(customId);
+    if (!sel || !custom) return;
+
+    sel.value = state.inputs.currency;
+    custom.value = state.inputs.customCurrencyCode || "";
+    custom.classList.toggle("hidden", state.inputs.currency !== "CUSTOM");
+
+    sel.addEventListener("change", () => {
+      state.inputs.currency = sel.value;
+      render();
+    });
+
+    custom.addEventListener("input", () => {
+      state.inputs.customCurrencyCode = (custom.value || "").toUpperCase();
+      // no full rerender needed on each key, but keep it simple
+      render();
+    });
   }
 
   function onInput(id, fn){
