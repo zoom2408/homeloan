@@ -72,9 +72,9 @@
         <div>
           <div class="inline-flex items-center gap-2">
             <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow">🏠</span>
-            <h1 class="text-2xl font-extrabold tracking-tight">Home Loan Simulator</h1>
+            <h1 id="appTitle" class="text-2xl font-extrabold tracking-tight">Home Loan Simulator</h1>
           </div>
-          <p class="mt-2 max-w-2xl text-sm text-slate-600">
+          <p id="appSubtitle" class="mt-2 max-w-2xl text-sm text-slate-600">
             Drag sections to rearrange your dashboard. Collapse what you don’t need. Rates are manual bands (Scenario A/B).
           </p>
         </div>
@@ -84,6 +84,10 @@
           <span id="pillRows" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Rows: —</span>
           <span id="pillCovered" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Covered: —</span>
           <span id="pillJumps" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-emerald-100 text-emerald-900 ring-emerald-200">Jumps: —</span>
+          <div class="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700">
+            <button id="langEn" type="button" class="rounded-xl px-2 py-1 font-extrabold bg-slate-100">EN</button>
+            <button id="langVi" type="button" class="rounded-xl px-2 py-1 font-extrabold">VI</button>
+          </div>
           <button id="resetLayoutBtn" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             Reset layout
           </button>
@@ -92,14 +96,13 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-700">
                 <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
               </svg>
+              <span id="menuBtnLabel">Sections</span>
             </span>
           </button>
         </div>
       </div>
       <div id="coverageWarning" class="hidden px-6 pb-6">
-        <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
-          Selected schedule (<b id="warnScenario">A</b>) doesn’t cover month <b id="warnMonth">—</b> onward. Add a band.
-        </div>
+        <div id="coverageWarningText" class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800"></div>
       </div>
     </div>
 
@@ -112,8 +115,8 @@
       <aside id="menuPanel" class="absolute right-0 top-0 flex h-full w-[320px] max-w-[88vw] translate-x-full flex-col bg-white shadow-2xl transition-transform duration-200">
         <div class="flex items-center justify-between border-b border-slate-100 p-4">
           <div>
-            <div class="text-sm font-extrabold text-slate-900">Sections</div>
-            <div class="text-xs text-slate-500">Choose what appears on your dashboard</div>
+            <div id="menuTitleText" class="text-sm font-extrabold text-slate-900">Sections</div>
+            <div id="menuSubtitleText" class="text-xs text-slate-500">Choose what appears on your dashboard</div>
           </div>
           <button id="menuClose" class="grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50" type="button" aria-label="Close">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-700">
@@ -123,22 +126,22 @@
         </div>
 
         <div class="flex-1 overflow-y-auto p-4">
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+          <div id="menuDefaultText" class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
             Default sections are always on: <b>Inputs</b>, <b>Grace & Jump rules</b>, <b>Key metrics</b>, <b>Repayment table</b>.
             Toggle the optional sections below.
           </div>
 
           <div class="mt-4 space-y-2" id="menuList"></div>
-          <div class="mt-3 text-[11px] text-slate-500">Drag the handle to reorder sections. Order is shared with the main dashboard.</div>
+          <div id="menuDragTipText" class="mt-3 text-[11px] text-slate-500">Drag the handle to reorder sections. Order is shared with the main dashboard.</div>
 
-          <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+          <div id="menuSaveTipText" class="mt-4 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
             Tip: your choices are saved in this browser.
           </div>
         </div>
       </aside>
     </div>
 
-    <div class="mt-8 text-center text-xs text-slate-500">This calculator is for estimation only.</div>
+    <div id="disclaimer" class="mt-8 text-center text-xs text-slate-500">This calculator is for estimation only.</div>
   </div>
 
 <script>
@@ -361,6 +364,243 @@
     URL.revokeObjectURL(url);
   };
 
+  const LANG_LS_KEY = "hl_lang_v1";
+  const translations = {
+    en: {
+      appTitle: "Home Loan Simulator",
+      appSubtitle: "Drag sections to rearrange your dashboard. Collapse what you don’t need. Rates are manual bands (Scenario A/B).",
+      disclaimer: "This calculator is for estimation only.",
+      resetLayout: "Reset layout",
+      sections: "Sections",
+      rows: "Rows",
+      covered: "Covered",
+      jumps: "Jumps",
+      coverageWarning: "Selected schedule (<b id=\"warnScenario\"></b>) doesn’t cover month <b id=\"warnMonth\"></b> onward. Add a band.",
+      menuTitle: "Sections",
+      menuSubtitle: "Choose what appears on your dashboard",
+      menuDefault: "Default sections are always on: <b>Inputs</b>, <b>Grace & Jump rules</b>, <b>Key metrics</b>, <b>Repayment table</b>. Toggle the optional sections below.",
+      menuDragTip: "Drag the handle to reorder sections. Order is shared with the main dashboard.",
+      menuSaveTip: "Tip: your choices are saved in this browser.",
+      required: "required",
+      reorder: "Reorder",
+      drag: "Drag to reorder",
+      expand: "Expand",
+      collapse: "Collapse",
+      inputsTitle: "Inputs",
+      inputsSubtitle: "Loan basics + scenario + currency",
+      graceTitle: "Grace & Jump rules",
+      graceSubtitle: "Grace period + jump threshold",
+      metricsTitle: "Key metrics",
+      metricsSubtitle: "Selected scenario summary",
+      chartsTitle: "Charts",
+      chartsSubtitle: "Balance + interest per year",
+      compareTitle: "Scenario A/B",
+      compareSubtitle: "Same inputs, different schedules",
+      scheduleATitle: "Rate Schedule A",
+      scheduleASubtitle: "Manual bands",
+      scheduleBTitle: "Rate Schedule B",
+      scheduleBSubtitle: "Manual bands",
+      tableTitle: "Repayment table",
+      tableSubtitle: "Full amortization list",
+      principal: "Principal",
+      principalHint: "loan amount",
+      startDate: "Start date",
+      startDateHint: "YYYY-MM-DD",
+      term: "Term",
+      termHint: "years or months",
+      paymentsPerYear: "Payments / year",
+      paymentsPerYearHint: "12 for monthly",
+      extraPayment: "Extra payment / month",
+      extraPaymentHint: "after grace",
+      scenario: "Scenario",
+      moneyFormatNote: "Money fields format with <b>comma</b> thousands and <b>dot</b> decimals after you leave the field.",
+      enableGrace: "Enable grace period",
+      graceType: "Grace type",
+      graceMonths: "Grace months",
+      capitalize: "Capitalize interest (full grace)",
+      enableJumps: "Enable payment jump flagging",
+      jumpThreshold: "Jump threshold",
+      howJumpTitle: "How jump works",
+      howJumpDesc: "A row is tagged <b>jump</b> only when the interest rate changes and |Δpayment| ≥ threshold.",
+      flagged: "Flagged",
+      selected: "Selected",
+      totalInterest: "Total interest",
+      totalPaid: "Total paid",
+      maxPayment: "Max payment",
+      payoffDate: "Payoff date",
+      balanceOverTime: "Balance over time",
+      balanceSubtitle: "End balance each month",
+      interestPerYear: "Interest per year",
+      interestSubtitle: "Sum of interest by calendar year",
+      trend: "Trend",
+      rateChanges: "Rate changes",
+      scenarioIntroTitle: "What are Scenario A & B?",
+      scenarioIntroBody: "<b>Scenario A</b> and <b>Scenario B</b> use the <i>same loan inputs</i> (principal, term, grace rules, extra payment), but apply <i>different interest-rate schedules</i>. This lets you compare two possible bank deals or rate paths side by side without re-entering data.",
+      scenarioIntroList1: "<b>Scenario A</b>: Often used as a <i>baseline</i> (e.g. current bank offer or conservative forecast).",
+      scenarioIntroList2: "<b>Scenario B</b>: Often used as an <i>alternative</i> (e.g. another bank, renegotiated rates, or optimistic path).",
+      scenarioIntroList3: "You can freely edit the rate bands for each scenario below.",
+      scenarioIntroList4: "The selector in <b>Inputs → Scenario</b> controls which scenario drives the charts and repayment table.",
+      metric: "Metric",
+      quickBadges: "Quick badges",
+      selectedA: "Selected A",
+      selectedB: "Selected B",
+      flaggedJumps: "Flagged jumps",
+      tipCollapse: "Tip: collapse schedules if you only want to focus on results.",
+      addBand: "Add band",
+      autoBands: "Auto yearly bands",
+      startMonth: "Start month",
+      endMonth: "End month",
+      annualRate: "Annual rate",
+      actions: "Actions",
+      remove: "Remove",
+      noBands: "No bands yet. Add one.",
+      tipYearly: "Tip: yearly resets = 12-month bands (1–12, 13–24, ...)",
+      exportCSV: "Export CSV",
+      ratesDecimal: "Rates = decimals",
+      reAmortize: "Re-amortize monthly",
+      flaggedLabel: "Flagged",
+      tableEmpty: "Nothing to show yet. Add rate bands starting from month 1.",
+      tableNote: "Showing ~12 rows at a time (scroll for more). Payment jumps are flagged only when the rate changes and |Δpayment| ≥ your threshold.",
+      number: "#",
+      date: "Date",
+      rate: "Rate",
+      begin: "Begin",
+      payment: "Payment",
+      interest: "Interest",
+      principalCol: "Principal",
+      extra: "Extra",
+      end: "End",
+      flags: "Flags",
+      rateBadge: "rate",
+      jumpBadge: "jump",
+    },
+    vi: {
+      appTitle: "Trình mô phỏng vay mua nhà",
+      appSubtitle: "Kéo các phần để sắp xếp bảng điều khiển. Thu gọn phần không cần thiết. Lãi suất theo từng giai đoạn (Kịch bản A/B).",
+      disclaimer: "Công cụ tính chỉ mang tính tham khảo.",
+      resetLayout: "Đặt lại bố cục",
+      sections: "Các phần",
+      rows: "Dòng",
+      covered: "Bao phủ",
+      jumps: "Biến động",
+      coverageWarning: "Lịch đã chọn (<b id=\"warnScenario\"></b>) không bao phủ từ tháng <b id=\"warnMonth\"></b> trở đi. Hãy thêm một giai đoạn.",
+      menuTitle: "Các phần",
+      menuSubtitle: "Chọn nội dung hiển thị trong bảng điều khiển",
+      menuDefault: "Các phần mặc định luôn bật: <b>Thông tin vay</b>, <b>Quy tắc ân hạn & cảnh báo</b>, <b>Chỉ số chính</b>, <b>Bảng hoàn trả</b>. Bật/tắt các phần tùy chọn bên dưới.",
+      menuDragTip: "Kéo tay cầm để sắp xếp. Thứ tự này dùng chung với bảng điều khiển chính.",
+      menuSaveTip: "Mẹo: lựa chọn của bạn được lưu ngay trên trình duyệt này.",
+      required: "bắt buộc",
+      reorder: "Sắp xếp",
+      drag: "Kéo để sắp xếp",
+      expand: "Mở rộng",
+      collapse: "Thu gọn",
+      inputsTitle: "Thông tin vay",
+      inputsSubtitle: "Thông tin cơ bản + kịch bản + tiền tệ",
+      graceTitle: "Quy tắc ân hạn & cảnh báo",
+      graceSubtitle: "Thời gian ân hạn + ngưỡng biến động",
+      metricsTitle: "Chỉ số chính",
+      metricsSubtitle: "Tóm tắt kịch bản đã chọn",
+      chartsTitle: "Biểu đồ",
+      chartsSubtitle: "Dư nợ + lãi theo năm",
+      compareTitle: "Kịch bản A/B",
+      compareSubtitle: "Cùng đầu vào, lịch lãi khác nhau",
+      scheduleATitle: "Lịch lãi suất A",
+      scheduleASubtitle: "Tùy chỉnh từng giai đoạn",
+      scheduleBTitle: "Lịch lãi suất B",
+      scheduleBSubtitle: "Tùy chỉnh từng giai đoạn",
+      tableTitle: "Bảng hoàn trả",
+      tableSubtitle: "Danh sách khấu hao đầy đủ",
+      principal: "Số tiền vay",
+      principalHint: "giá trị khoản vay",
+      startDate: "Ngày bắt đầu",
+      startDateHint: "YYYY-MM-DD",
+      term: "Thời hạn",
+      termHint: "năm hoặc tháng",
+      paymentsPerYear: "Số kỳ/năm",
+      paymentsPerYearHint: "12 cho trả hàng tháng",
+      extraPayment: "Trả thêm mỗi tháng",
+      extraPaymentHint: "sau ân hạn",
+      scenario: "Kịch bản",
+      moneyFormatNote: "Ô tiền sẽ định dạng <b>dấu phẩy</b> cho hàng nghìn và <b>dấu chấm</b> cho thập phân sau khi rời khỏi ô.",
+      enableGrace: "Bật thời gian ân hạn",
+      graceType: "Loại ân hạn",
+      graceMonths: "Số tháng ân hạn",
+      capitalize: "Cộng dồn lãi (ân hạn toàn phần)",
+      enableJumps: "Bật đánh dấu biến động thanh toán",
+      jumpThreshold: "Ngưỡng biến động",
+      howJumpTitle: "Cách tính biến động",
+      howJumpDesc: "Một dòng được gắn <b>jump</b> khi lãi suất thay đổi và |Δthanh toán| ≥ ngưỡng.",
+      flagged: "Đã đánh dấu",
+      selected: "Đã chọn",
+      totalInterest: "Tổng lãi",
+      totalPaid: "Tổng đã trả",
+      maxPayment: "Khoản trả tối đa",
+      payoffDate: "Ngày tất toán",
+      balanceOverTime: "Dư nợ theo thời gian",
+      balanceSubtitle: "Dư nợ cuối mỗi tháng",
+      interestPerYear: "Lãi theo năm",
+      interestSubtitle: "Tổng lãi theo năm dương lịch",
+      trend: "Xu hướng",
+      rateChanges: "Số lần đổi lãi",
+      scenarioIntroTitle: "Kịch bản A & B là gì?",
+      scenarioIntroBody: "<b>Kịch bản A</b> và <b>Kịch bản B</b> dùng cùng <i>thông tin khoản vay</i> (gốc, kỳ hạn, quy tắc ân hạn, trả thêm) nhưng áp dụng <i>lịch lãi suất khác nhau</i>. Điều này giúp so sánh hai phương án ngân hàng/rủi ro mà không phải nhập lại dữ liệu.",
+      scenarioIntroList1: "<b>Kịch bản A</b>: Thường là <i>mốc cơ sở</i> (ví dụ: đề nghị hiện tại hoặc dự báo thận trọng).",
+      scenarioIntroList2: "<b>Kịch bản B</b>: Thường là <i>phương án khác</i> (ví dụ: ngân hàng khác, đàm phán lại lãi, hoặc kịch bản lạc quan).",
+      scenarioIntroList3: "Bạn có thể chỉnh sửa tự do các giai đoạn lãi cho từng kịch bản bên dưới.",
+      scenarioIntroList4: "Bộ chọn trong <b>Thông tin vay → Kịch bản</b> quyết định kịch bản nào dùng cho biểu đồ và bảng hoàn trả.",
+      metric: "Chỉ số",
+      quickBadges: "Huy hiệu nhanh",
+      selectedA: "Đã chọn A",
+      selectedB: "Đã chọn B",
+      flaggedJumps: "Biến động đánh dấu",
+      tipCollapse: "Mẹo: thu gọn lịch nếu chỉ muốn xem kết quả.",
+      addBand: "Thêm giai đoạn",
+      autoBands: "Tự tạo giai đoạn 12 tháng",
+      startMonth: "Tháng bắt đầu",
+      endMonth: "Tháng kết thúc",
+      annualRate: "Lãi suất năm",
+      actions: "Thao tác",
+      remove: "Xóa",
+      noBands: "Chưa có giai đoạn. Hãy thêm.",
+      tipYearly: "Mẹo: giai đoạn 12 tháng (1–12, 13–24, ...)",
+      exportCSV: "Xuất CSV",
+      ratesDecimal: "Lãi suất = số thập phân",
+      reAmortize: "Tái khấu hao hàng tháng",
+      flaggedLabel: "Đánh dấu",
+      tableEmpty: "Chưa có dữ liệu. Hãy thêm giai đoạn lãi bắt đầu từ tháng 1.",
+      tableNote: "Hiển thị ~12 dòng mỗi lần (kéo để xem thêm). Chỉ đánh dấu biến động khi lãi thay đổi và |Δthanh toán| ≥ ngưỡng của bạn.",
+      number: "#",
+      date: "Ngày",
+      rate: "Lãi suất",
+      begin: "Đầu kỳ",
+      payment: "Thanh toán",
+      interest: "Tiền lãi",
+      principalCol: "Tiền gốc",
+      extra: "Trả thêm",
+      end: "Cuối kỳ",
+      flags: "Nhãn",
+      rateBadge: "lãi",
+      jumpBadge: "jump",
+    },
+  };
+
+  let currentLanguage = (localStorage.getItem(LANG_LS_KEY) || "en");
+  const t = (key) => translations[currentLanguage]?.[key] ?? translations.en[key] ?? key;
+
+  function applyLanguage(){
+    if (!translations[currentLanguage]) currentLanguage = "en";
+    document.documentElement.lang = currentLanguage;
+  }
+
+  function setLanguage(lang){
+    currentLanguage = translations[lang] ? lang : "en";
+    try { localStorage.setItem(LANG_LS_KEY, currentLanguage); } catch {}
+    applyLanguage();
+    refreshStaticText();
+    render();
+    renderMenu();
+  }
+
   // -----------------------
   // State
   // -----------------------
@@ -419,15 +659,23 @@
   };
 
   const sectionMeta = {
-    inputs:   { title: "Inputs",           subtitle: "Loan basics + scenario + currency" },
-    grace:    { title: "Grace & Jump rules", subtitle: "Grace period + jump threshold" },
-    metrics:  { title: "Key metrics",      subtitle: "Selected scenario summary" },
-    charts:   { title: "Charts",           subtitle: "Balance + interest per year" },
-    compare:  { title: "Scenario A/B",     subtitle: "Same inputs, different schedules" },
-    scheduleA:{ title: "Rate Schedule A",  subtitle: "Manual bands" },
-    scheduleB:{ title: "Rate Schedule B",  subtitle: "Manual bands" },
-    table:    { title: "Repayment table",  subtitle: "Full amortization list" },
+    inputs:   { titleKey: "inputsTitle",    subtitleKey: "inputsSubtitle" },
+    grace:    { titleKey: "graceTitle",     subtitleKey: "graceSubtitle" },
+    metrics:  { titleKey: "metricsTitle",   subtitleKey: "metricsSubtitle" },
+    charts:   { titleKey: "chartsTitle",    subtitleKey: "chartsSubtitle" },
+    compare:  { titleKey: "compareTitle",   subtitleKey: "compareSubtitle" },
+    scheduleA:{ titleKey: "scheduleATitle", subtitleKey: "scheduleASubtitle" },
+    scheduleB:{ titleKey: "scheduleBTitle", subtitleKey: "scheduleBSubtitle" },
+    table:    { titleKey: "tableTitle",     subtitleKey: "tableSubtitle" },
   };
+
+  function getSectionMeta(id){
+    const meta = sectionMeta[id] || {};
+    return {
+      title: t(meta.titleKey || id),
+      subtitle: t(meta.subtitleKey || ""),
+    };
+  }
 
   function loadLayout(){
     let order = DEFAULT_ORDER;
@@ -484,6 +732,39 @@
   const menuList = document.getElementById("menuList");
   const menuBtn = document.getElementById("menuBtn");
   const menuClose = document.getElementById("menuClose");
+  const langEn = document.getElementById("langEn");
+  const langVi = document.getElementById("langVi");
+
+  function refreshStaticText(){
+    const titleEl = document.getElementById("appTitle");
+    const subtitleEl = document.getElementById("appSubtitle");
+    const resetBtn = document.getElementById("resetLayoutBtn");
+    const menuLabel = document.getElementById("menuBtnLabel");
+    const warn = document.getElementById("coverageWarningText");
+    const disclaimer = document.getElementById("disclaimer");
+    const menuTitle = document.getElementById("menuTitleText");
+    const menuSubtitle = document.getElementById("menuSubtitleText");
+    const menuDefault = document.getElementById("menuDefaultText");
+    const menuDragTip = document.getElementById("menuDragTipText");
+    const menuSaveTip = document.getElementById("menuSaveTipText");
+
+    if (titleEl) titleEl.textContent = t("appTitle");
+    if (subtitleEl) subtitleEl.textContent = t("appSubtitle");
+    if (resetBtn) resetBtn.textContent = t("resetLayout");
+    if (menuLabel) menuLabel.textContent = t("sections");
+    if (warn) warn.innerHTML = t("coverageWarning");
+    if (disclaimer) disclaimer.textContent = t("disclaimer");
+    if (menuTitle) menuTitle.textContent = t("menuTitle");
+    if (menuSubtitle) menuSubtitle.textContent = t("menuSubtitle");
+    if (menuDefault) menuDefault.innerHTML = t("menuDefault");
+    if (menuDragTip) menuDragTip.textContent = t("menuDragTip");
+    if (menuSaveTip) menuSaveTip.textContent = t("menuSaveTip");
+
+    if (langEn && langVi){
+      langEn.classList.toggle("bg-slate-100", currentLanguage === "en");
+      langVi.classList.toggle("bg-slate-100", currentLanguage === "vi");
+    }
+  }
 
   function openMenu(){
     if (!menuOverlay || !menuPanel) return;
@@ -508,17 +789,17 @@
     menuList.innerHTML = ids.map(id => {
       const required = REQUIRED_SECTIONS.includes(id);
       const checked = !!layout.visible?.[id];
-      const meta = sectionMeta[id];
+      const meta = getSectionMeta(id);
       return `
         <div data-menu-id="${id}" class="menu-item flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:bg-slate-50">
           <div class="flex items-start gap-2 min-w-0">
-            <button type="button" class="menu-handle mt-1 grid h-7 w-7 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 cursor-grab active:cursor-grabbing" title="Reorder">
+            <button type="button" class="menu-handle mt-1 grid h-7 w-7 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 cursor-grab active:cursor-grabbing" title="${t("reorder")}">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                 <path d="M10 4H4v6h6V4Zm10 0h-6v6h6V4ZM10 14H4v6h6v-6Zm10 0h-6v6h6v-6Z" fill="currentColor" opacity=".7" />
               </svg>
             </button>
             <div class="min-w-0">
-              <div class="text-sm font-extrabold text-slate-900">${meta.title}${required ? " <span class='text-[11px] font-black text-slate-400'>(required)</span>" : ""}</div>
+              <div class="text-sm font-extrabold text-slate-900">${meta.title}${required ? " <span class='text-[11px] font-black text-slate-400'>(" + t("required") + ")</span>" : ""}</div>
               <div class="text-xs text-slate-500">${meta.subtitle}</div>
             </div>
           </div>
@@ -559,6 +840,8 @@
   if (menuClose) menuClose.addEventListener("click", closeMenu);
   if (menuBackdrop) menuBackdrop.addEventListener("click", closeMenu);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape" && menuOverlay && !menuOverlay.classList.contains("hidden")) closeMenu(); });
+  if (langEn) langEn.onclick = () => setLanguage("en");
+  if (langVi) langVi.onclick = () => setLanguage("vi");
 
   // -----------------------
   // Menu drag & drop (reorder sections)
@@ -717,7 +1000,7 @@
   }
 
   function sectionShell(id, innerHTML, rightHTML=""){
-    const meta = sectionMeta[id];
+    const meta = getSectionMeta(id);
     const isCollapsed = !!layout.collapsed[id];
 
     const wrap = document.createElement("div");
@@ -727,7 +1010,7 @@
       <div class="rounded-3xl border border-slate-200 card-glass shadow-sm overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div class="flex items-center gap-3">
-            <button class="handle grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder" type="button">
+            <button class="handle grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 cursor-grab active:cursor-grabbing select-none" title="${t("drag")}" type="button">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-500">
                 <path d="M10 4H4v6h6V4Zm10 0h-6v6h6V4ZM10 14H4v6h6v-6Zm10 0h-6v6h6v-6Z" fill="currentColor" opacity=".75" />
               </svg>
@@ -747,7 +1030,7 @@
             ${rightHTML}
             <button class="toggle rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" type="button">
               <span class="inline-flex items-center gap-2">
-                <span class="label">${isCollapsed ? "Expand" : "Collapse"}</span>
+                <span class="label">${isCollapsed ? t("expand") : t("collapse")}</span>
                 <span class="chev transition-transform ${isCollapsed ? "rotate-180" : "rotate-0"}">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-600">
                     <path d="M7 10l5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -880,20 +1163,20 @@
     return `
       <div>
         <div class="flex items-center justify-between gap-3">
-          <div class="text-sm font-bold text-slate-900">Schedule ${which} bands</div>
+          <div class="text-sm font-bold text-slate-900">${which === "A" ? t("scheduleATitle") : t("scheduleBTitle")}</div>
           <div class="flex items-center gap-2">
-            <button data-add-band="${which}" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95" type="button">Add band</button>
-            <button data-auto-bands="${which}" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50" type="button">Auto yearly bands</button>
+            <button data-add-band="${which}" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95" type="button">${t("addBand")}</button>
+            <button data-auto-bands="${which}" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50" type="button">${t("autoBands")}</button>
           </div>
         </div>
         <div class="mt-3 overflow-auto rounded-2xl border border-slate-200">
           <table class="min-w-full text-sm" id="${tableId}">
             <thead class="sticky top-0 bg-slate-50">
               <tr class="text-left text-xs font-extrabold uppercase tracking-widest text-slate-500">
-                <th class="px-3 py-2">Start</th>
-                <th class="px-3 py-2">End</th>
-                <th class="px-3 py-2">Annual rate</th>
-                <th class="px-3 py-2"></th>
+                <th class="px-3 py-2">${t("startMonth")}</th>
+                <th class="px-3 py-2">${t("endMonth")}</th>
+                <th class="px-3 py-2">${t("annualRate")}</th>
+                <th class="px-3 py-2">${t("actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -913,17 +1196,17 @@
                     <div class="mt-1 text-[11px] text-slate-400">(decimal, e.g. 0.105)</div>
                   </td>
                   <td class="px-3 py-2">
-                    <button data-remove-band="${which}" data-idx="${idx}" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100" type="button">Remove</button>
+                    <button data-remove-band="${which}" data-idx="${idx}" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100" type="button">${t("remove")}</button>
                   </td>
                 </tr>
               `).join("")}
               ${sched.length === 0 ? `
-                <tr><td colspan="4" class="px-3 py-6 text-center text-sm text-slate-500">No bands yet. Add one.</td></tr>
+                <tr><td colspan="4" class="px-3 py-6 text-center text-sm text-slate-500">${t("noBands")}</td></tr>
               ` : ""}
             </tbody>
           </table>
         </div>
-        <div class="mt-3 text-xs text-slate-500">Tip: yearly resets = 12-month bands (1–12, 13–24, ...)</div>
+        <div class="mt-3 text-xs text-slate-500">${t("tipYearly")}</div>
       </div>
     `;
   }
@@ -1008,7 +1291,7 @@
       data: {
         labels: balanceData.map(d => d.date),
         datasets: [{
-          label: "Balance",
+          label: t("balanceOverTime"),
           data: balanceData.map(d => d.balance),
           borderWidth: 2,
           pointRadius: 0,
@@ -1033,7 +1316,7 @@
       type: "bar",
       data: {
         labels: yearlyInterestData.map(d => String(d.year)),
-        datasets: [{ label: "Interest", data: yearlyInterestData.map(d => d.interest), borderWidth: 0 }]
+        datasets: [{ label: t("interest"), data: yearlyInterestData.map(d => d.interest), borderWidth: 0 }]
       },
       options: {
         responsive: true,
@@ -1068,9 +1351,9 @@
     const jumpCount = rowsSel.filter(jumpFlag).length;
 
     // header pills + warning
-    document.getElementById("pillRows").textContent = `Rows: ${rowsSel.length}`;
-    document.getElementById("pillCovered").textContent = `Covered: ${rowsSel.length}/${nTotal}`;
-    document.getElementById("pillJumps").textContent = `Jumps: ${jumpCount}`;
+    document.getElementById("pillRows").textContent = `${t("rows")}: ${rowsSel.length}`;
+    document.getElementById("pillCovered").textContent = `${t("covered")}: ${rowsSel.length}/${nTotal}`;
+    document.getElementById("pillJumps").textContent = `${t("jumps")}: ${jumpCount}`;
     pill(document.getElementById("pillJumps"), jumpCount > 0 ? "amber" : "green");
 
     const warn = document.getElementById("coverageWarning");
@@ -1086,21 +1369,19 @@
 
     const inputsHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        ${inputField("Principal","loan amount", moneyInput("principal","currency_p","customCurrencyCode_p"))}
-        ${inputField("Start date","YYYY-MM-DD", textInput("startDateISO","date"))}
-        ${inputField("Term","years or months", termInput("termValue","termUnit"))}
+        ${inputField(t("principal"),t("principalHint"), moneyInput("principal","currency_p","customCurrencyCode_p"))}
+        ${inputField(t("startDate"),t("startDateHint"), textInput("startDateISO","date"))}
+        ${inputField(t("term"),t("termHint"), termInput("termValue","termUnit"))}
 
-        ${inputField("Payments / year","12 for monthly", textInput("paymentsPerYear","number","1","1"))}
-        ${inputField("Extra payment / month","after grace", moneyInput("extraPaymentMonthly","currency_e","customCurrencyCode_e"))}
-        ${inputField("Scenario","", selectInput("scenario", [
+        ${inputField(t("paymentsPerYear"),t("paymentsPerYearHint"), textInput("paymentsPerYear","number","1","1"))}
+        ${inputField(t("extraPayment"),t("extraPaymentHint"), moneyInput("extraPaymentMonthly","currency_e","customCurrencyCode_e"))}
+        ${inputField(t("scenario"),"", selectInput("scenario", [
           {value:"A", label:"A"},
           {value:"B", label:"B"},
         ]))}
 
         <div class="md:col-span-3">
-          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">
-            Money fields format with <b>comma</b> thousands and <b>dot</b> decimals after you leave the field.
-          </div>
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600">${t("moneyFormatNote")}</div>
         </div>
       </div>
     `;
@@ -1108,23 +1389,23 @@
     const graceHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="flex flex-col gap-3">
-          ${toggleButton("graceEnabled","Enable grace period")}
-          ${inputField("Grace type","", selectInput("graceType", [
-            {value:"interest_only", label:"interest_only"},
-            {value:"full", label:"full"},
+          ${toggleButton("graceEnabled",t("enableGrace"))}
+          ${inputField(t("graceType"),"", selectInput("graceType", [
+            {value:"interest_only", label:t("graceType")+" - interest_only"},
+            {value:"full", label:t("graceType")+" - full"},
           ]))}
-          ${inputField("Grace months","", textInput("graceMonths","number","1","0"))}
-          ${toggleButton("capitalizeFullGraceInterest","Capitalize interest (full grace)")}
+          ${inputField(t("graceMonths"),"", textInput("graceMonths","number","1","0"))}
+          ${toggleButton("capitalizeFullGraceInterest",t("capitalize"))}
         </div>
         <div class="flex flex-col gap-3">
-          ${toggleButton("showPaymentJumps","Enable payment jump flagging")}
-          ${inputField("Jump threshold","", moneyInput("jumpThreshold","currency_j","customCurrencyCode_j"))}
+          ${toggleButton("showPaymentJumps",t("enableJumps"))}
+          ${inputField(t("jumpThreshold"),"", moneyInput("jumpThreshold","currency_j","customCurrencyCode_j"))}
           <div class="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-            <div class="font-extrabold">How jump works</div>
-            <div class="mt-1 text-xs text-slate-600">A row is tagged <b>jump</b> only when the interest rate changes and |Δpayment| ≥ threshold.</div>
+            <div class="font-extrabold">${t("howJumpTitle")}</div>
+            <div class="mt-1 text-xs text-slate-600">${t("howJumpDesc")}</div>
             <div class="mt-2 flex flex-wrap gap-2">
-              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">Flagged: ${jumpCount}</span>
-              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Selected: ${state.inputs.scenario}</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">${t("flagged")}: ${jumpCount}</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">${t("selected")}: ${state.inputs.scenario}</span>
             </div>
           </div>
         </div>
@@ -1133,10 +1414,10 @@
 
     const metricsHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
-        ${metricCard("Total interest", money(sumSel.totalInterest), "from-fuchsia-600 to-indigo-600")}
-        ${metricCard("Total paid", money(sumSel.totalPaid), "from-cyan-500 to-indigo-600")}
-        ${metricCard("Max payment", money(sumSel.maxPayment), "from-amber-500 to-fuchsia-600")}
-        ${metricCard("Payoff date", sumSel.payoffDate || "—", "from-emerald-500 to-cyan-500")}
+        ${metricCard(t("totalInterest"), money(sumSel.totalInterest), "from-fuchsia-600 to-indigo-600")}
+        ${metricCard(t("totalPaid"), money(sumSel.totalPaid), "from-cyan-500 to-indigo-600")}
+        ${metricCard(t("maxPayment"), money(sumSel.maxPayment), "from-amber-500 to-fuchsia-600")}
+        ${metricCard(t("payoffDate"), sumSel.payoffDate || "—", "from-emerald-500 to-cyan-500")}
       </div>
     `;
 
@@ -1145,8 +1426,8 @@
         <div class="rounded-3xl border border-slate-200 bg-white p-4">
           <div class="flex items-center justify-between">
             <div>
-              <div class="text-sm font-extrabold">Balance over time</div>
-              <div class="text-xs text-slate-500">End balance each month</div>
+              <div class="text-sm font-extrabold">${t("balanceOverTime")}</div>
+              <div class="text-xs text-slate-500">${t("balanceSubtitle")}</div>
             </div>
             <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-indigo-100 text-indigo-800 ring-indigo-200">Scenario ${state.inputs.scenario}</span>
           </div>
@@ -1155,10 +1436,10 @@
         <div class="rounded-3xl border border-slate-200 bg-white p-4">
           <div class="flex items-center justify-between">
             <div>
-              <div class="text-sm font-extrabold">Interest per year</div>
-              <div class="text-xs text-slate-500">Sum of interest by calendar year</div>
+              <div class="text-sm font-extrabold">${t("interestPerYear")}</div>
+              <div class="text-xs text-slate-500">${t("interestSubtitle")}</div>
             </div>
-            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-cyan-100 text-cyan-900 ring-cyan-200">Trend</span>
+            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-cyan-100 text-cyan-900 ring-cyan-200">${t("trend")}</span>
           </div>
           <div class="mt-3 h-64"><canvas id="interestChart"></canvas></div>
         </div>
@@ -1167,17 +1448,13 @@
 
     const compareHTML = `
       <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
-        <div class="font-extrabold text-slate-900">What are Scenario A & B?</div>
-        <p class="mt-1 text-xs text-slate-600">
-          <b>Scenario A</b> and <b>Scenario B</b> use the <i>same loan inputs</i> (principal, term, grace rules, extra payment),
-          but apply <i>different interest-rate schedules</i>. This lets you compare two possible bank deals or rate paths
-          side by side without re-entering data.
-        </p>
+        <div class="font-extrabold text-slate-900">${t("scenarioIntroTitle")}</div>
+        <p class="mt-1 text-xs text-slate-600">${t("scenarioIntroBody")}</p>
         <ul class="mt-2 list-disc pl-5 text-xs text-slate-600 space-y-1">
-          <li><b>Scenario A</b>: Often used as a <i>baseline</i> (e.g. current bank offer or conservative forecast).</li>
-          <li><b>Scenario B</b>: Often used as an <i>alternative</i> (e.g. another bank, renegotiated rates, or optimistic path).</li>
-          <li>You can freely edit the rate bands for each scenario below.</li>
-          <li>The selector in <b>Inputs → Scenario</b> controls which scenario drives the charts and repayment table.</li>
+          <li>${t("scenarioIntroList1")}</li>
+          <li>${t("scenarioIntroList2")}</li>
+          <li>${t("scenarioIntroList3")}</li>
+          <li>${t("scenarioIntroList4")}</li>
         </ul>
       </div>
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -1186,18 +1463,18 @@
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50">
               <tr class="text-left text-xs font-extrabold uppercase tracking-widest text-slate-500">
-                <th class="px-3 py-2">Metric</th>
+                <th class="px-3 py-2">${t("metric")}</th>
                 <th class="px-3 py-2">A</th>
                 <th class="px-3 py-2">B</th>
               </tr>
             </thead>
             <tbody>
               ${[
-                ["Total interest", money(sumA.totalInterest), money(sumB.totalInterest)],
-                ["Total paid", money(sumA.totalPaid), money(sumB.totalPaid)],
-                ["Max payment", money(sumA.maxPayment), money(sumB.maxPayment)],
-                ["Payoff date", sumA.payoffDate || "—", sumB.payoffDate || "—"],
-                ["Rate changes", String(sumA.rateChangeCount), String(sumB.rateChangeCount)],
+                [t("totalInterest"), money(sumA.totalInterest), money(sumB.totalInterest)],
+                [t("totalPaid"), money(sumA.totalPaid), money(sumB.totalPaid)],
+                [t("maxPayment"), money(sumA.maxPayment), money(sumB.maxPayment)],
+                [t("payoffDate"), sumA.payoffDate || "—", sumB.payoffDate || "—"],
+                [t("rateChanges"), String(sumA.rateChangeCount), String(sumB.rateChangeCount)],
               ].map((row, idx) => `
                 <tr class="${idx%2 ? "bg-white" : "bg-slate-50/30"}">
                   <td class="px-3 py-2 font-bold text-slate-800">${row[0]}</td>
@@ -1209,15 +1486,15 @@
           </table>
         </div>
         <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-          <div class="text-sm font-extrabold">Quick badges</div>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${state.inputs.scenario==="A"?"bg-indigo-100 text-indigo-800 ring-indigo-200":"bg-slate-100 text-slate-700 ring-slate-200"}">Selected A</span>
-            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${state.inputs.scenario==="B"?"bg-indigo-100 text-indigo-800 ring-indigo-200":"bg-slate-100 text-slate-700 ring-slate-200"}">Selected B</span>
-            <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">Flagged jumps: ${jumpCount}</span>
+          <div class="text-sm font-extrabold">${t("quickBadges")}</div>
+            <div class="mt-2 flex flex-wrap gap-2">
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${state.inputs.scenario==="A"?"bg-indigo-100 text-indigo-800 ring-indigo-200":"bg-slate-100 text-slate-700 ring-slate-200"}">${t("selectedA")}</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${state.inputs.scenario==="B"?"bg-indigo-100 text-indigo-800 ring-indigo-200":"bg-slate-100 text-slate-700 ring-slate-200"}">${t("selectedB")}</span>
+              <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">${t("flaggedJumps")}: ${jumpCount}</span>
+            </div>
+            <div class="mt-3 text-xs text-slate-600">${t("tipCollapse")}</div>
           </div>
-          <div class="mt-3 text-xs text-slate-600">Tip: collapse schedules if you only want to focus on results.</div>
         </div>
-      </div>
     `;
 
     const scheduleAHTML = renderSchedulesTable("A");
@@ -1231,7 +1508,7 @@
               <path d="M12 3v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
               <path d="M4 17v3h16v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
             </svg>
-            Export CSV
+            ${t("exportCSV")}
           </span>
         </button>
       </div>
@@ -1240,9 +1517,9 @@
     const tableHTML = `
       <div>
         <div class="mb-3 flex flex-wrap items-center gap-2">
-          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Rates = decimals</span>
-          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Re-amortize monthly</span>
-          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">Flagged: ${jumpCount}</span>
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">${t("ratesDecimal")}</span>
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">${t("reAmortize")}</span>
+          <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">${t("flaggedLabel")}: ${jumpCount}</span>
         </div>
 
         <div class="rounded-3xl border border-slate-200 overflow-hidden">
@@ -1250,16 +1527,16 @@
             <table class="min-w-full text-sm">
             <thead class="sticky top-0 bg-slate-50">
               <tr class="text-left text-xs font-extrabold uppercase tracking-widest text-slate-500">
-                <th class="px-3 py-2">#</th>
-                <th class="px-3 py-2">Date</th>
-                <th class="px-3 py-2">Rate</th>
-                <th class="px-3 py-2 text-right">Begin</th>
-                <th class="px-3 py-2 text-right">Payment</th>
-                <th class="px-3 py-2 text-right">Interest</th>
-                <th class="px-3 py-2 text-right">Principal</th>
-                <th class="px-3 py-2 text-right">Extra</th>
-                <th class="px-3 py-2 text-right">End</th>
-                <th class="px-3 py-2">Flags</th>
+                <th class="px-3 py-2">${t("number")}</th>
+                <th class="px-3 py-2">${t("date")}</th>
+                <th class="px-3 py-2">${t("rate")}</th>
+                <th class="px-3 py-2 text-right">${t("begin")}</th>
+                <th class="px-3 py-2 text-right">${t("payment")}</th>
+                <th class="px-3 py-2 text-right">${t("interest")}</th>
+                <th class="px-3 py-2 text-right">${t("principalCol")}</th>
+                <th class="px-3 py-2 text-right">${t("extra")}</th>
+                <th class="px-3 py-2 text-right">${t("end")}</th>
+                <th class="px-3 py-2">${t("flags")}</th>
               </tr>
             </thead>
             <tbody>
@@ -1274,7 +1551,7 @@
                     <td class="px-3 py-2">
                       <div class="flex flex-wrap items-center gap-2">
                         <span class="font-bold text-slate-800">${formatPct(r.annualRate)}</span>
-                        ${r.rateChanged ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-amber-100 text-amber-900 ring-amber-200">rate</span>` : ""}
+                        ${r.rateChanged ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-amber-100 text-amber-900 ring-amber-200">${t("rateBadge")}</span>` : ""}
                       </div>
                     </td>
                     <td class="px-3 py-2 text-right tabular">${money(r.beginBalance)}</td>
@@ -1286,7 +1563,7 @@
                     <td class="px-3 py-2">
                       <div class="flex flex-wrap gap-2">
                         ${r.note ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">${r.note}</span>` : ""}
-                        ${flagged ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-amber-100 text-amber-900 ring-amber-200">jump</span>` : ""}
+                        ${flagged ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-amber-100 text-amber-900 ring-amber-200">${t("jumpBadge")}</span>` : ""}
                         ${state.inputs.showPaymentJumps && r.rateChanged ? `<span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Δ ${money(r.paymentJump)}</span>` : ""}
                       </div>
                     </td>
@@ -1294,7 +1571,7 @@
                 `;
               }).join("") : `
                 <tr>
-                  <td colspan="10" class="px-3 py-10 text-center text-sm text-slate-500">Nothing to show yet. Add rate bands starting from month 1.</td>
+                  <td colspan="10" class="px-3 py-10 text-center text-sm text-slate-500">${t("tableEmpty")}</td>
                 </tr>
               `}
             </tbody>
@@ -1302,7 +1579,7 @@
           </div>
         </div>
 
-        <div class="mt-3 text-xs text-slate-500">Showing ~12 rows at a time (scroll for more). Payment jumps are flagged only when the rate changes and |Δpayment| ≥ your threshold.</div>
+        <div class="mt-3 text-xs text-slate-500">${t("tableNote")}</div>
       </div>
     `;
 
@@ -1602,6 +1879,8 @@
     assert("term months clamp to 360", getTermPeriods({ termUnit:"months", termValue: 999, paymentsPerYear: 12 }) === 360);
   })();
 
+  applyLanguage();
+  refreshStaticText();
   // initial render
   render();
 </script>
