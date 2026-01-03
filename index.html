@@ -21,14 +21,20 @@
     Notes:
     - Rates are decimals (0.105 = 10.5% annually)
     - Re-amortizes each month based on current rate and remaining term
+
+    DnD note:
+    - Uses pointer-based dragging (not HTML5 dragstart/dragend) to avoid browser quirks.
   -->
 
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
   <style>
+    /* Hide scrollbars but keep scrolling */
+    .no-scrollbar::-webkit-scrollbar{display:none;}
+    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
     :root{ color-scheme: light; }
-    /* little fintech sparkle */
+    /* fintech sparkle */
     .bg-fintech{
       background:
         radial-gradient(900px 500px at 20% 0, rgba(217,70,239,.18), transparent 55%),
@@ -36,9 +42,22 @@
         linear-gradient(to bottom, #f8fafc, white);
     }
     .card-glass{ background: rgba(255,255,255,.80); backdrop-filter: blur(10px); }
-    .handle{ touch-action:none; }
+
+    .handle{ touch-action:none; user-select:none; }
     .dragging{ opacity:.65; }
     .drop-hint{ outline: 2px solid rgba(217,70,239,.35); outline-offset: 2px; }
+    .ghost{
+      position: fixed;
+      z-index: 9999;
+      pointer-events: none;
+      transform: translate3d(0,0,0);
+    }
+    .placeholder{
+      border-radius: 24px;
+      border: 2px dashed rgba(217,70,239,.35);
+      background: rgba(217,70,239,.06);
+    }
+
     details > summary { list-style: none; }
     details > summary::-webkit-details-marker { display:none; }
     .tabular{ font-variant-numeric: tabular-nums; }
@@ -60,46 +79,63 @@
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <button id="menuBtn" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50" title="Sections" type="button">
+            <span class="inline-flex items-center gap-2">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-700">
+                <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              Sections
+            </span>
+          </button>
           <span id="pillRows" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Rows: —</span>
           <span id="pillCovered" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-slate-100 text-slate-700 ring-slate-200">Covered: —</span>
           <span id="pillJumps" class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 bg-emerald-100 text-emerald-900 ring-emerald-200">Jumps: —</span>
           <button id="resetLayoutBtn" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">
             Reset layout
           </button>
-          <button id="sectionMenuBtn" class="grid h-10 w-10 place-items-center rounded-2xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50" title="Show sections menu" aria-haspopup="true" aria-expanded="false">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M4 7.5h16M4 12h16M4 16.5h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-          </button>
         </div>
       </div>
       <div id="coverageWarning" class="hidden px-6 pb-6">
         <div class="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
           Selected schedule (<b id="warnScenario">A</b>) doesn’t cover month <b id="warnMonth">—</b> onward. Add a band.
-      </div>
-    </div>
-
-    <!-- Slide-out sections menu -->
-    <div id="sectionMenuOverlay" class="fixed inset-0 z-30 bg-slate-900/30 opacity-0 transition-opacity duration-200 pointer-events-none"></div>
-    <div id="sectionMenu" class="fixed inset-y-0 right-0 z-40 flex w-80 max-w-full translate-x-full flex-col border-l border-slate-200 bg-white shadow-2xl transition-transform duration-200">
-      <div class="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
-        <div class="text-left">
-          <div class="text-sm font-extrabold text-slate-900">Sections</div>
-          <div class="text-xs text-slate-500">Default sections stay on. Toggle the rest.</div>
         </div>
-        <button id="sectionMenuClose" class="grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 text-slate-600 hover:bg-slate-50" title="Close sections menu">
-          <span class="sr-only">Close</span>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-        </button>
       </div>
-      <div id="sectionMenuList" class="flex flex-1 flex-col gap-2 overflow-y-auto p-4 text-sm text-slate-800"></div>
     </div>
-  </div>
 
     <!-- Board (draggable sections) -->
     <div id="board" class="grid grid-cols-1 gap-4"></div>
+
+    <!-- Slideout menu -->
+    <div id="menuOverlay" class="fixed inset-0 z-[10000] hidden">
+      <div id="menuBackdrop" class="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px]"></div>
+      <aside id="menuPanel" class="absolute right-0 top-0 flex h-full w-[320px] max-w-[88vw] translate-x-full flex-col bg-white shadow-2xl transition-transform duration-200">
+        <div class="flex items-center justify-between border-b border-slate-100 p-4">
+          <div>
+            <div class="text-sm font-extrabold text-slate-900">Sections</div>
+            <div class="text-xs text-slate-500">Choose what appears on your dashboard</div>
+          </div>
+          <button id="menuClose" class="grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50" type="button" aria-label="Close">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-700">
+              <path d="M6 6l12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="flex-1 overflow-y-auto p-4">
+          <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+            Default sections are always on: <b>Inputs</b>, <b>Grace & Jump rules</b>, <b>Key metrics</b>, <b>Repayment table</b>.
+            Toggle the optional sections below.
+          </div>
+
+          <div class="mt-4 space-y-2" id="menuList"></div>
+          <div class="mt-3 text-[11px] text-slate-500">Drag the handle to reorder sections. Order is shared with the main dashboard.</div>
+
+          <div class="mt-4 rounded-2xl border border-slate-200 bg-white p-3 text-xs text-slate-600">
+            Tip: your choices are saved in this browser.
+          </div>
+        </div>
+      </aside>
+    </div>
 
     <div class="mt-8 text-center text-xs text-slate-500">This calculator is for estimation only.</div>
   </div>
@@ -109,12 +145,14 @@
   // Utilities
   // -----------------------
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
+
   const toISODate = (d) => {
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, "0");
     const dd = String(d.getDate()).padStart(2, "0");
     return `${yyyy}-${mm}-${dd}`;
   };
+
   const addMonthsISO = (startISO, monthsToAdd) => {
     const [y, m, d] = startISO.split("-").map(x => parseInt(x, 10));
     const dt = new Date(y, m - 1, d);
@@ -181,7 +219,7 @@
           maximumFractionDigits: code === "VND" ? 0 : 2,
         }).format(n);
       } catch {
-        return new Intl.NumberFormat(undefined, { maximumFractionDigits: 2 }).format(n);
+        return new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 }).format(n);
       }
     };
   };
@@ -207,6 +245,14 @@
   };
 
   const balanceSeries = (rows) => rows.map(r => ({ date: r.dateISO, balance: r.endBalance }));
+
+  // Term helper
+  const getTermPeriods = (inputs) => {
+    const ppY = inputs.paymentsPerYear;
+    if (inputs.termUnit === "months") return clamp(Math.floor(inputs.termValue || 1), 1, 360);
+    const years = clamp(Number(inputs.termValue || 1), 1, 30);
+    return Math.min(Math.floor(years * ppY), 360);
+  };
 
   const buildAmortization = (inputs, schedule) => {
     const sched = normalizeSchedule(schedule);
@@ -351,23 +397,24 @@
   };
 
   // -----------------------
-  // Draggable + Collapsible sections (native DnD)
+  // Layout persistence
   // -----------------------
-  const LS_ORDER = "hl_html_order_v2";
-  const LS_COLLAPSED = "hl_html_collapsed_v2";
+  const LS_ORDER = "hl_html_order_v3";
+  const LS_COLLAPSED = "hl_html_collapsed_v3";
   const LS_VISIBLE = "hl_html_visible_v1";
 
   const DEFAULT_ORDER = ["inputs","grace","metrics","charts","compare","scheduleA","scheduleB","table"];
-  const ALWAYS_VISIBLE = ["inputs","grace","metrics","table"];
+
   const DEFAULT_VISIBLE = {
     inputs: true,
     grace: true,
     metrics: true,
     table: true,
-    charts: false,
-    compare: false,
-    scheduleA: false,
-    scheduleB: false,
+    // Optional sections default ON
+    charts: true,
+    compare: true,
+    scheduleA: true,
+    scheduleB: true,
   };
 
   const sectionMeta = {
@@ -386,6 +433,8 @@
     let collapsed = {
       inputs:false, grace:false, metrics:false, charts:false, compare:false, scheduleA:true, scheduleB:true, table:false
     };
+    let visible = { ...DEFAULT_VISIBLE };
+
     try {
       const rawOrder = JSON.parse(localStorage.getItem(LS_ORDER) || "null");
       if (Array.isArray(rawOrder)) {
@@ -398,124 +447,261 @@
       if (rawCol && typeof rawCol === "object") {
         collapsed = { ...collapsed, ...rawCol };
       }
-    } catch {}
-    return { order, collapsed };
-  }
-
-  function loadVisibility(){
-    let visible = { ...DEFAULT_VISIBLE };
-    try {
-      const raw = JSON.parse(localStorage.getItem(LS_VISIBLE) || "null");
-      if (raw && typeof raw === "object") {
-        Object.entries(raw).forEach(([k,v]) => {
-          if (DEFAULT_VISIBLE.hasOwnProperty(k)) visible[k] = !!v;
-        });
+      const rawVis = JSON.parse(localStorage.getItem(LS_VISIBLE) || "null");
+      if (rawVis && typeof rawVis === "object") {
+        visible = { ...visible, ...rawVis };
       }
     } catch {}
-    ALWAYS_VISIBLE.forEach(k => visible[k] = true);
-    return visible;
+
+    // Required sections always visible
+    visible.inputs = true;
+    visible.grace = true;
+    visible.metrics = true;
+    visible.table = true;
+
+    return { order, collapsed, visible };
   }
 
-  function saveLayout(order, collapsed){
+  function saveLayout(order, collapsed, visible){
     try {
       localStorage.setItem(LS_ORDER, JSON.stringify(order));
       localStorage.setItem(LS_COLLAPSED, JSON.stringify(collapsed));
-    } catch {}
-  }
-
-  function saveVisibility(visible){
-    try {
-      localStorage.setItem(LS_VISIBLE, JSON.stringify(visible));
+      if (visible) localStorage.setItem(LS_VISIBLE, JSON.stringify(visible));
     } catch {}
   }
 
   let layout = loadLayout();
-  let visibility = loadVisibility();
 
   // -----------------------
-  // Rendering
+  // Slideout menu helpers
+  // -----------------------
+  const REQUIRED_SECTIONS = ["inputs","grace","metrics","table"];
+
+  const menuOverlay = document.getElementById("menuOverlay");
+  const menuPanel = document.getElementById("menuPanel");
+  const menuBackdrop = document.getElementById("menuBackdrop");
+  const menuList = document.getElementById("menuList");
+  const menuBtn = document.getElementById("menuBtn");
+  const menuClose = document.getElementById("menuClose");
+
+  function openMenu(){
+    if (!menuOverlay || !menuPanel) return;
+    menuOverlay.classList.remove("hidden");
+    // allow layout to paint before slide-in
+    requestAnimationFrame(() => menuPanel.classList.remove("translate-x-full"));
+  }
+
+  function closeMenu(){
+    if (!menuOverlay || !menuPanel) return;
+    menuPanel.classList.add("translate-x-full");
+    setTimeout(() => menuOverlay.classList.add("hidden"), 180);
+  }
+
+  function renderMenu(){
+    if (!menuList) return;
+
+    // enforce required sections
+    for (const id of REQUIRED_SECTIONS) layout.visible[id] = true;
+
+    const ids = Array.isArray(layout.order) && layout.order.length ? [...layout.order] : [...DEFAULT_ORDER];
+    menuList.innerHTML = ids.map(id => {
+      const required = REQUIRED_SECTIONS.includes(id);
+      const checked = !!layout.visible?.[id];
+      const meta = sectionMeta[id];
+      return `
+        <div data-menu-id="${id}" class="menu-item flex items-start justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-3 hover:bg-slate-50">
+          <div class="flex items-start gap-2 min-w-0">
+            <button type="button" class="menu-handle mt-1 grid h-7 w-7 place-items-center rounded-xl border border-slate-200 bg-white text-slate-500 cursor-grab active:cursor-grabbing" title="Reorder">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M10 4H4v6h6V4Zm10 0h-6v6h6V4ZM10 14H4v6h6v-6Zm10 0h-6v6h6v-6Z" fill="currentColor" opacity=".7" />
+              </svg>
+            </button>
+            <div class="min-w-0">
+              <div class="text-sm font-extrabold text-slate-900">${meta.title}${required ? " <span class='text-[11px] font-black text-slate-400'>(required)</span>" : ""}</div>
+              <div class="text-xs text-slate-500">${meta.subtitle}</div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            data-vis="${id}"
+            ${required ? "disabled" : ""}
+            aria-checked="${checked ? "true" : "false"}"
+            role="switch"
+            class="menuToggle relative mt-1 inline-flex h-7 w-12 items-center rounded-full transition ${checked ? "bg-fuchsia-600" : "bg-slate-200"} ${required ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}">
+            <span class="inline-block h-6 w-6 transform rounded-full bg-white shadow transition ${checked ? "translate-x-5" : "translate-x-1"}"></span>
+          </button>
+        </div>
+      `;
+    }).join("");
+
+    menuList.querySelectorAll("button[data-vis]").forEach(btn => {
+      btn.onclick = () => {
+        const id = btn.getAttribute("data-vis");
+        const required = REQUIRED_SECTIONS.includes(id);
+        if (required) return;
+
+        const current = !!layout.visible?.[id];
+        const next = !current;
+        layout.visible[id] = next;
+        for (const rid of REQUIRED_SECTIONS) layout.visible[rid] = true;
+
+        saveLayout(layout.order, layout.collapsed, layout.visible);
+        render();
+        renderMenu();
+      };
+    });
+  }
+
+  // Menu events
+  if (menuBtn) menuBtn.addEventListener("click", () => { renderMenu(); openMenu(); });
+  if (menuClose) menuClose.addEventListener("click", closeMenu);
+  if (menuBackdrop) menuBackdrop.addEventListener("click", closeMenu);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && menuOverlay && !menuOverlay.classList.contains("hidden")) closeMenu(); });
+
+  // -----------------------
+  // Menu drag & drop (reorder sections)
+  // - Pointer-based like the dashboard (robust)
+  // - Drag handle only
+  // - Live updates: updates layout.order immediately, re-renders dashboard + menu
+  // -----------------------
+  const menuDnd = {
+    draggingEl: null,
+    placeholder: null,
+    ghost: null,
+    offsetX: 0,
+    offsetY: 0,
+    activePointerId: null,
+  };
+
+  const cleanupMenuDnD = () => {
+    if (menuDnd.draggingEl) menuDnd.draggingEl.classList.remove("dragging");
+    if (menuDnd.placeholder && menuDnd.placeholder.parentNode) menuDnd.placeholder.parentNode.removeChild(menuDnd.placeholder);
+    if (menuDnd.ghost && menuDnd.ghost.parentNode) menuDnd.ghost.parentNode.removeChild(menuDnd.ghost);
+
+    menuDnd.draggingEl = null;
+    menuDnd.placeholder = null;
+    menuDnd.ghost = null;
+    menuDnd.activePointerId = null;
+
+    // Save order from menu DOM
+    if (menuList) {
+      const newOrder = Array.from(menuList.querySelectorAll("[data-menu-id]")).map(el => el.getAttribute("data-menu-id"));
+      // sanitize
+      const known = new Set(DEFAULT_ORDER);
+      const cleaned = newOrder.filter(id => known.has(id));
+      DEFAULT_ORDER.forEach(id => { if (!cleaned.includes(id)) cleaned.push(id); });
+      layout.order = cleaned;
+      saveLayout(layout.order, layout.collapsed, layout.visible);
+    }
+  };
+
+  const makeMenuGhost = (el) => {
+    const rect = el.getBoundingClientRect();
+    const g = el.cloneNode(true);
+    g.classList.add("ghost");
+    g.style.width = rect.width + "px";
+    g.style.left = rect.left + "px";
+    g.style.top = rect.top + "px";
+    g.style.opacity = "0.96";
+    g.style.borderRadius = "20px";
+    g.style.boxShadow = "0 16px 30px rgba(15,23,42,.18)";
+    document.body.appendChild(g);
+    return g;
+  };
+
+  const makeMenuPlaceholder = (el) => {
+    const rect = el.getBoundingClientRect();
+    const p = document.createElement("div");
+    p.className = "placeholder";
+    p.style.height = rect.height + "px";
+    p.style.borderRadius = "20px";
+    return p;
+  };
+
+  const updateMenuGhostPos = (clientX, clientY) => {
+    if (!menuDnd.ghost) return;
+    menuDnd.ghost.style.left = (clientX - menuDnd.offsetX) + "px";
+    menuDnd.ghost.style.top  = (clientY - menuDnd.offsetY) + "px";
+  };
+
+  const getMenuItemFromPoint = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return null;
+    const item = el.closest("[data-menu-id]");
+    if (!item || item === menuDnd.draggingEl) return null;
+    return item;
+  };
+
+  const placeMenuPlaceholder = (overEl, clientY) => {
+    if (!overEl || !menuDnd.placeholder) return;
+    const rect = overEl.getBoundingClientRect();
+    const before = (clientY - rect.top) < rect.height / 2;
+    if (before) overEl.parentNode.insertBefore(menuDnd.placeholder, overEl);
+    else overEl.parentNode.insertBefore(menuDnd.placeholder, overEl.nextSibling);
+  };
+
+  // Delegate on menuList
+  if (menuList) {
+    menuList.addEventListener("pointerdown", (e) => {
+      const handle = e.target.closest(".menu-handle");
+      if (!handle) return;
+      const item = handle.closest("[data-menu-id]");
+      if (!item) return;
+
+      e.preventDefault();
+
+      menuDnd.draggingEl = item;
+      menuDnd.activePointerId = e.pointerId;
+
+      const rect = item.getBoundingClientRect();
+      menuDnd.offsetX = e.clientX - rect.left;
+      menuDnd.offsetY = e.clientY - rect.top;
+
+      item.classList.add("dragging");
+      menuDnd.placeholder = makeMenuPlaceholder(item);
+      item.parentNode.insertBefore(menuDnd.placeholder, item.nextSibling);
+
+      menuDnd.ghost = makeMenuGhost(item);
+      updateMenuGhostPos(e.clientX, e.clientY);
+
+      handle.setPointerCapture?.(e.pointerId);
+    });
+
+    menuList.addEventListener("pointermove", (e) => {
+      if (!menuDnd.draggingEl || menuDnd.activePointerId !== e.pointerId) return;
+      updateMenuGhostPos(e.clientX, e.clientY);
+      const over = getMenuItemFromPoint(e.clientX, e.clientY);
+      if (over) placeMenuPlaceholder(over, e.clientY);
+    });
+
+    menuList.addEventListener("pointerup", (e) => {
+      if (!menuDnd.draggingEl || menuDnd.activePointerId !== e.pointerId) return;
+
+      if (menuDnd.placeholder && menuDnd.placeholder.parentNode) {
+        menuDnd.placeholder.parentNode.insertBefore(menuDnd.draggingEl, menuDnd.placeholder);
+      }
+
+      cleanupMenuDnD();
+
+      // Live update: reflect new order immediately
+      render();
+      renderMenu();
+    });
+
+    menuList.addEventListener("pointercancel", (e) => {
+      if (!menuDnd.draggingEl || menuDnd.activePointerId !== e.pointerId) return;
+      cleanupMenuDnD();
+      render();
+      renderMenu();
+    });
+  }
+
+  // -----------------------
+  // DOM helpers
   // -----------------------
   const board = document.getElementById("board");
-  const sectionMenu = document.getElementById("sectionMenu");
-  const sectionMenuBtn = document.getElementById("sectionMenuBtn");
-  const sectionMenuClose = document.getElementById("sectionMenuClose");
-  const sectionMenuList = document.getElementById("sectionMenuList");
-  const sectionMenuOverlay = document.getElementById("sectionMenuOverlay");
-
   let charts = { balance: null, interest: null };
-
-  function renderSectionMenu(){
-    if (!sectionMenuList) return;
-    sectionMenuList.innerHTML = "";
-
-    const addRow = (label, controlHTML) => {
-      const row = document.createElement("div");
-      row.className = "flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2";
-      row.innerHTML = `<span class="text-sm font-semibold text-slate-800">${label}</span>${controlHTML}`;
-      sectionMenuList.appendChild(row);
-    };
-
-    ALWAYS_VISIBLE.forEach(id => {
-      const meta = sectionMeta[id];
-      addRow(meta.title, `<span class="text-[11px] font-semibold uppercase tracking-wide text-emerald-700">Default</span>`);
-    });
-
-    const toggleables = DEFAULT_ORDER.filter(id => !ALWAYS_VISIBLE.includes(id));
-    toggleables.forEach(id => {
-      const meta = sectionMeta[id];
-      const wrap = document.createElement("label");
-      wrap.className = "flex items-center justify-between gap-3 rounded-xl border border-slate-100 px-3 py-2 hover:bg-slate-50 cursor-pointer";
-      const input = document.createElement("input");
-      input.type = "checkbox";
-      input.className = "h-4 w-4 rounded border-slate-300 text-fuchsia-600 focus:ring-fuchsia-200";
-      input.checked = !!visibility[id];
-      input.addEventListener("change", () => {
-        visibility[id] = !!input.checked;
-        saveVisibility(visibility);
-        render();
-      });
-      const labelEl = document.createElement("div");
-      labelEl.className = "flex flex-col";
-      labelEl.innerHTML = `<span class="text-sm font-semibold text-slate-800">${meta.title}</span><span class="text-[11px] text-slate-500">${meta.subtitle}</span>`;
-      wrap.appendChild(labelEl);
-      wrap.appendChild(input);
-      sectionMenuList.appendChild(wrap);
-    });
-  }
-
-  let menuOpen = false;
-  function setMenu(open){
-    if (!sectionMenu || !sectionMenuBtn) return;
-    menuOpen = !!open;
-    sectionMenu.classList.toggle("translate-x-full", !menuOpen);
-    sectionMenuBtn.setAttribute("aria-expanded", menuOpen ? "true" : "false");
-    if (sectionMenuOverlay){
-      sectionMenuOverlay.classList.toggle("opacity-0", !menuOpen);
-      sectionMenuOverlay.classList.toggle("pointer-events-none", !menuOpen);
-    }
-  }
-
-  if (sectionMenuBtn){
-    sectionMenuBtn.addEventListener("click", (e)=>{
-      e.stopPropagation();
-      setMenu(!menuOpen);
-    });
-  }
-
-  if (sectionMenuClose){
-    sectionMenuClose.addEventListener("click", () => setMenu(false));
-  }
-
-  if (sectionMenuOverlay){
-    sectionMenuOverlay.addEventListener("click", () => setMenu(false));
-  }
-
-  document.addEventListener("click", (e)=>{
-    if (!menuOpen) return;
-    if (sectionMenu && sectionMenu.contains(e.target)) return;
-    if (sectionMenuBtn && sectionMenuBtn.contains(e.target)) return;
-    setMenu(false);
-  });
 
   function pill(el, tone){
     const map = {
@@ -534,14 +720,13 @@
     const isCollapsed = !!layout.collapsed[id];
 
     const wrap = document.createElement("div");
-    wrap.className = "";
     wrap.dataset.id = id;
 
     wrap.innerHTML = `
       <div class="rounded-3xl border border-slate-200 card-glass shadow-sm overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-5 py-4">
           <div class="flex items-center gap-3">
-            <button class="handle grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 cursor-grab active:cursor-grabbing select-none" draggable="true" title="Drag to reorder">
+            <button class="handle grid h-9 w-9 place-items-center rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 cursor-grab active:cursor-grabbing select-none" title="Drag to reorder" type="button">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-slate-500">
                 <path d="M10 4H4v6h6V4Zm10 0h-6v6h6V4ZM10 14H4v6h6v-6Zm10 0h-6v6h6v-6Z" fill="currentColor" opacity=".75" />
               </svg>
@@ -559,7 +744,7 @@
 
           <div class="flex items-center gap-2">
             ${rightHTML}
-            <button class="toggle rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+            <button class="toggle rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" type="button">
               <span class="inline-flex items-center gap-2">
                 <span class="label">${isCollapsed ? "Expand" : "Collapse"}</span>
                 <span class="chev transition-transform ${isCollapsed ? "rotate-180" : "rotate-0"}">
@@ -578,10 +763,9 @@
       </div>
     `;
 
-    // toggle collapse
     wrap.querySelector(".toggle").addEventListener("click", () => {
       layout.collapsed[id] = !layout.collapsed[id];
-      saveLayout(layout.order, layout.collapsed);
+      saveLayout(layout.order, layout.collapsed, layout.visible);
       render();
     });
 
@@ -608,7 +792,6 @@
       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />`;
   }
 
-  // Term input: number + unit dropdown (years/months)
   function termInput(valueId, unitId){
     return `
       <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
@@ -624,15 +807,6 @@
     `;
   }
 
-  const getTermPeriods = (inputs) => {
-    const ppY = inputs.paymentsPerYear;
-    if (inputs.termUnit === "months") return clamp(Math.floor(inputs.termValue || 1), 1, 360);
-    const years = clamp(Number(inputs.termValue || 1), 1, 30);
-    return Math.min(Math.floor(years * ppY), 360);
-  };
-
-
-  // Money input: text field (formatted) + currency dropdown suffix
   function moneyInput(id, currencySelectId, customCodeId){
     return `
       <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
@@ -707,8 +881,8 @@
         <div class="flex items-center justify-between gap-3">
           <div class="text-sm font-bold text-slate-900">Schedule ${which} bands</div>
           <div class="flex items-center gap-2">
-            <button data-add-band="${which}" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95">Add band</button>
-            <button data-auto-bands="${which}" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">Auto yearly bands</button>
+            <button data-add-band="${which}" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95" type="button">Add band</button>
+            <button data-auto-bands="${which}" class="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50" type="button">Auto yearly bands</button>
           </div>
         </div>
         <div class="mt-3 overflow-auto rounded-2xl border border-slate-200">
@@ -738,7 +912,7 @@
                     <div class="mt-1 text-[11px] text-slate-400">(decimal, e.g. 0.105)</div>
                   </td>
                   <td class="px-3 py-2">
-                    <button data-remove-band="${which}" data-idx="${idx}" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100">Remove</button>
+                    <button data-remove-band="${which}" data-idx="${idx}" class="rounded-2xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-extrabold text-rose-700 hover:bg-rose-100" type="button">Remove</button>
                   </td>
                 </tr>
               `).join("")}
@@ -753,8 +927,128 @@
     `;
   }
 
+  // -----------------------
+  // Render
+  // -----------------------
+  function metricCard(label, value, gradient){
+    return `
+      <div class="rounded-3xl bg-gradient-to-br ${gradient} p-[1px]">
+        <div class="rounded-3xl bg-white p-4">
+          <div class="text-xs font-extrabold text-slate-600">${label}</div>
+          <div class="mt-2 text-2xl font-black tracking-tight">${value}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function setValue(id, value){
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  }
+
+  function setMoneyValue(id, value, currency){
+    const el = document.getElementById(id);
+    if (!el) return;
+    const maxDec = (currency === "VND") ? 0 : 2;
+    el.value = formatNumberInput(Number(value) || 0, maxDec);
+  }
+
+  function onCommit(id, fn){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("change", (e) => fn(e.target.value));
+    el.addEventListener("blur", (e) => fn(e.target.value));
+  }
+
+  function onInput(id, fn){
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener("input", (e) => fn(e.target.value));
+    el.addEventListener("change", (e) => fn(e.target.value));
+  }
+
+  function setCurrencyControls(selectId, customId){
+    const sel = document.getElementById(selectId);
+    const custom = document.getElementById(customId);
+    if (!sel || !custom) return;
+
+    sel.value = state.inputs.currency;
+    custom.value = state.inputs.customCurrencyCode || "";
+    custom.classList.toggle("hidden", state.inputs.currency !== "CUSTOM");
+
+    sel.onchange = () => {
+      state.inputs.currency = sel.value;
+      render();
+    };
+
+    custom.oninput = () => {
+      state.inputs.customCurrencyCode = (custom.value || "").toUpperCase();
+      render();
+    };
+  }
+
+  function wireToggle(id, checked, onChange){
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    paintToggle(btn, checked);
+    btn.onclick = () => onChange(!checked);
+  }
+
+  function renderCharts(balanceData, yearlyInterestData, money){
+    const balanceCanvas = document.getElementById("balanceChart");
+    const interestCanvas = document.getElementById("interestChart");
+    if (!balanceCanvas || !interestCanvas) return;
+
+    if (charts.balance) charts.balance.destroy();
+    if (charts.interest) charts.interest.destroy();
+
+    charts.balance = new Chart(balanceCanvas, {
+      type: "line",
+      data: {
+        labels: balanceData.map(d => d.date),
+        datasets: [{
+          label: "Balance",
+          data: balanceData.map(d => d.balance),
+          borderWidth: 2,
+          pointRadius: 0,
+          tension: 0.25,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${money(Number(ctx.parsed.y))}` } },
+          legend: { display: false }
+        },
+        scales: {
+          x: { display: false },
+          y: { ticks: { callback: (v) => money(Number(v)) }, grid: { drawBorder: false } }
+        }
+      }
+    });
+
+    charts.interest = new Chart(interestCanvas, {
+      type: "bar",
+      data: {
+        labels: yearlyInterestData.map(d => String(d.year)),
+        datasets: [{ label: "Interest", data: yearlyInterestData.map(d => d.interest), borderWidth: 0 }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: { callbacks: { label: (ctx) => `${ctx.dataset.label}: ${money(Number(ctx.parsed.y))}` } },
+          legend: { display: false }
+        },
+        scales: {
+          y: { ticks: { callback: (v) => money(Number(v)) }, grid: { drawBorder: false } }
+        }
+      }
+    });
+  }
+
   function render(){
-    // compute selected rows
     const scheduleSel = state.inputs.scenario === "A" ? state.scheduleA : state.scheduleB;
     const money = makeMoneyFormatter(state.inputs.currency, state.inputs.customCurrencyCode);
 
@@ -787,13 +1081,8 @@
       warn.classList.add("hidden");
     }
 
-    ALWAYS_VISIBLE.forEach(id => visibility[id] = true);
-    renderSectionMenu();
-
-    // build sections
     board.innerHTML = "";
 
-    // Inputs section
     const inputsHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
         ${inputField("Principal","loan amount", moneyInput("principal","currency_p","customCurrencyCode_p"))}
@@ -815,7 +1104,6 @@
       </div>
     `;
 
-    // Grace section
     const graceHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <div class="flex flex-col gap-3">
@@ -842,7 +1130,6 @@
       </div>
     `;
 
-    // Metrics section
     const metricsHTML = `
       <div class="grid grid-cols-1 gap-4 md:grid-cols-4">
         ${metricCard("Total interest", money(sumSel.totalInterest), "from-fuchsia-600 to-indigo-600")}
@@ -852,7 +1139,6 @@
       </div>
     `;
 
-    // Charts section
     const chartsHTML = `
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div class="rounded-3xl border border-slate-200 bg-white p-4">
@@ -878,8 +1164,22 @@
       </div>
     `;
 
-    // Compare section
     const compareHTML = `
+      <div class="mb-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+        <div class="font-extrabold text-slate-900">What are Scenario A & B?</div>
+        <p class="mt-1 text-xs text-slate-600">
+          <b>Scenario A</b> and <b>Scenario B</b> use the <i>same loan inputs</i> (principal, term, grace rules, extra payment),
+          but apply <i>different interest-rate schedules</i>. This lets you compare two possible bank deals or rate paths
+          side by side without re-entering data.
+        </p>
+        <ul class="mt-2 list-disc pl-5 text-xs text-slate-600 space-y-1">
+          <li><b>Scenario A</b>: Often used as a <i>baseline</i> (e.g. current bank offer or conservative forecast).</li>
+          <li><b>Scenario B</b>: Often used as an <i>alternative</i> (e.g. another bank, renegotiated rates, or optimistic path).</li>
+          <li>You can freely edit the rate bands for each scenario below.</li>
+          <li>The selector in <b>Inputs → Scenario</b> controls which scenario drives the charts and repayment table.</li>
+        </ul>
+      </div>
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
         <div class="lg:col-span-2 overflow-auto rounded-3xl border border-slate-200">
           <table class="min-w-full text-sm">
@@ -919,14 +1219,12 @@
       </div>
     `;
 
-    // Schedules
     const scheduleAHTML = renderSchedulesTable("A");
     const scheduleBHTML = renderSchedulesTable("B");
 
-    // Repayment table
     const rightTable = `
       <div class="flex flex-wrap items-center gap-2">
-        <button id="exportCSV" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95">
+        <button id="exportCSV" class="rounded-2xl bg-gradient-to-r from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow hover:opacity-95" type="button">
           <span class="inline-flex items-center gap-2">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-white">
               <path d="M12 3v10m0 0 4-4m-4 4-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -946,8 +1244,9 @@
           <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${jumpCount>0?"bg-amber-100 text-amber-900 ring-amber-200":"bg-emerald-100 text-emerald-900 ring-emerald-200"}">Flagged: ${jumpCount}</span>
         </div>
 
-        <div class="overflow-auto rounded-3xl border border-slate-200">
-          <table class="min-w-full text-sm">
+        <div class="rounded-3xl border border-slate-200 overflow-hidden">
+          <div class="max-h-[520px] overflow-y-auto overflow-x-auto no-scrollbar">
+            <table class="min-w-full text-sm">
             <thead class="sticky top-0 bg-slate-50">
               <tr class="text-left text-xs font-extrabold uppercase tracking-widest text-slate-500">
                 <th class="px-3 py-2">#</th>
@@ -999,13 +1298,13 @@
               `}
             </tbody>
           </table>
+          </div>
         </div>
 
-        <div class="mt-3 text-xs text-slate-500">Payment jumps are flagged only when the rate changes and |Δpayment| ≥ your threshold.</div>
+        <div class="mt-3 text-xs text-slate-500">Showing ~12 rows at a time (scroll for more). Payment jumps are flagged only when the rate changes and |Δpayment| ≥ your threshold.</div>
       </div>
     `;
 
-    // Create + append sections in current order
     const sections = {
       inputs: sectionShell("inputs", inputsHTML),
       grace: sectionShell("grace", graceHTML),
@@ -1017,11 +1316,11 @@
       table: sectionShell("table", tableHTML, rightTable),
     };
 
-    // set order
-    layout.order.forEach(id => { if (visibility[id]) board.appendChild(sections[id]); });
+    layout.order.forEach(id => {
+      if (layout.visible?.[id]) board.appendChild(sections[id]);
+    });
 
     // Wire inputs
-    // Inputs
     setMoneyValue("principal", state.inputs.principal, state.inputs.currency);
     setCurrencyControls("currency_p","customCurrencyCode_p");
     setValue("startDateISO", state.inputs.startDateISO);
@@ -1030,12 +1329,11 @@
     setValue("paymentsPerYear", state.inputs.paymentsPerYear);
     setMoneyValue("extraPaymentMonthly", state.inputs.extraPaymentMonthly, state.inputs.currency);
     setCurrencyControls("currency_e","customCurrencyCode_e");
-
     setValue("scenario", state.inputs.scenario);
-    
 
     onCommit("principal", (v)=>{ state.inputs.principal = Math.max(0, parseNumberInput(v)); render(); });
     onInput("startDateISO", (v)=>{ state.inputs.startDateISO = v || state.inputs.startDateISO; render(); });
+
     onInput("termValue", (v)=>{
       const n = Number(v)||1;
       if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(n), 1, 360);
@@ -1049,12 +1347,10 @@
       else state.inputs.termValue = clamp(Number(state.inputs.termValue||1), 1, 30);
       render();
     });
+
     onInput("paymentsPerYear", (v)=>{ state.inputs.paymentsPerYear = clamp(Number(v)||12, 1, 365); render(); });
     onCommit("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, parseNumberInput(v)); render(); });
-
     onInput("scenario", (v)=>{ state.inputs.scenario = v === "B" ? "B" : "A"; render(); });
-    
-    
 
     // Grace + jumps
     wireToggle("graceEnabled", state.inputs.graceEnabled, (nv)=>{ state.inputs.graceEnabled = nv; render(); });
@@ -1069,9 +1365,9 @@
     setCurrencyControls("currency_j","customCurrencyCode_j");
     onCommit("jumpThreshold", (v)=>{ state.inputs.jumpThreshold = Math.max(0, parseNumberInput(v)); render(); });
 
-    // Schedules events
+    // Schedules
     document.querySelectorAll("[data-add-band]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         const which = btn.getAttribute("data-add-band");
         const target = which === "A" ? normalizeSchedule(state.scheduleA) : normalizeSchedule(state.scheduleB);
         const last = target[target.length-1];
@@ -1079,30 +1375,30 @@
         target.push({ startMonth: start, endMonth: start + 11, annualRate: last ? last.annualRate : 0.085 });
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
         render();
-      });
+      };
     });
 
     document.querySelectorAll("[data-auto-bands]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         const which = btn.getAttribute("data-auto-bands");
         autoYearlyBands(which);
         render();
-      });
+      };
     });
 
     document.querySelectorAll("[data-remove-band]").forEach(btn => {
-      btn.addEventListener("click", () => {
+      btn.onclick = () => {
         const which = btn.getAttribute("data-remove-band");
         const idx = Number(btn.getAttribute("data-idx"));
         const target = normalizeSchedule(which === "A" ? state.scheduleA : state.scheduleB);
         target.splice(idx, 1);
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
         render();
-      });
+      };
     });
 
     document.querySelectorAll("input[data-sched]").forEach(inp => {
-      inp.addEventListener("input", (e) => {
+      inp.oninput = (e) => {
         const which = inp.getAttribute("data-sched");
         const idx = Number(inp.getAttribute("data-idx"));
         const key = inp.getAttribute("data-key");
@@ -1113,226 +1409,169 @@
         if (key === "annualRate") target[idx].annualRate = Number.isFinite(val) ? val : 0;
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
         render();
-      });
+      };
     });
 
     // Export
     const exp = document.getElementById("exportCSV");
-    if (exp) exp.addEventListener("click", () => downloadCSV(`amort_${state.inputs.scenario}.csv`, rowsSel));
+    if (exp) exp.onclick = () => downloadCSV(`amort_${state.inputs.scenario}.csv`, rowsSel);
 
-    // Native Drag & Drop (handle drags the whole section)
-    wireDnD();
+    // Charts
+    renderCharts(balanceData, yearlyInterestData, money);
+  }
 
-    // Charts (Chart.js)
-    if (visibility.charts) renderCharts(balanceData, yearlyInterestData, money);
-    else {
-      if (charts.balance) { charts.balance.destroy(); charts.balance = null; }
-      if (charts.interest) { charts.interest.destroy(); charts.interest = null; }
+  // -----------------------
+  // Pointer-based Drag & Drop (robust)
+  // -----------------------
+  const dnd = {
+    draggingId: null,
+    draggingEl: null,
+    placeholder: null,
+    ghost: null,
+    startX: 0,
+    startY: 0,
+    offsetX: 0,
+    offsetY: 0,
+    activePointerId: null,
+  };
+
+  const cleanupDnD = () => {
+    if (dnd.draggingEl) dnd.draggingEl.classList.remove("dragging");
+    document.querySelectorAll("[data-id]").forEach(c => c.classList.remove("drop-hint"));
+
+    if (dnd.placeholder && dnd.placeholder.parentNode) dnd.placeholder.parentNode.removeChild(dnd.placeholder);
+    if (dnd.ghost && dnd.ghost.parentNode) dnd.ghost.parentNode.removeChild(dnd.ghost);
+
+    dnd.draggingId = null;
+    dnd.draggingEl = null;
+    dnd.placeholder = null;
+    dnd.ghost = null;
+    dnd.activePointerId = null;
+
+    // save order (preserve hidden section positions)
+    const oldOrder = Array.isArray(layout.order) ? [...layout.order] : [...DEFAULT_ORDER];
+    const newVisibleOrder = Array.from(board.querySelectorAll("[data-id]")).map(x => x.dataset.id);
+
+    // Replace visible ids in the old order with the new visible order, keeping hidden ids in place.
+    const visSet = new Set(newVisibleOrder);
+    const queue = [...newVisibleOrder];
+    const merged = oldOrder.map(id => (visSet.has(id) ? queue.shift() : id));
+
+    // If something went weird (shouldn't), fall back to merged+missing.
+    const known = new Set(DEFAULT_ORDER);
+    const cleaned = merged.filter(id => known.has(id));
+    DEFAULT_ORDER.forEach(id => { if(!cleaned.includes(id)) cleaned.push(id); });
+
+    layout.order = cleaned;
+    saveLayout(layout.order, layout.collapsed, layout.visible);
+  };
+
+  const makeGhost = (el) => {
+    const rect = el.getBoundingClientRect();
+    const g = el.cloneNode(true);
+    g.classList.add("ghost");
+    g.style.width = rect.width + "px";
+    g.style.left = rect.left + "px";
+    g.style.top = rect.top + "px";
+    g.style.opacity = "0.92";
+    g.style.boxShadow = "0 20px 40px rgba(15,23,42,.18)";
+    g.style.borderRadius = "28px";
+    document.body.appendChild(g);
+    return g;
+  };
+
+  const makePlaceholder = (el) => {
+    const rect = el.getBoundingClientRect();
+    const p = document.createElement("div");
+    p.className = "placeholder";
+    p.style.height = rect.height + "px";
+    return p;
+  };
+
+  const updateGhostPos = (clientX, clientY) => {
+    if (!dnd.ghost) return;
+    const x = clientX - dnd.offsetX;
+    const y = clientY - dnd.offsetY;
+    dnd.ghost.style.left = x + "px";
+    dnd.ghost.style.top = y + "px";
+  };
+
+  const getDropTarget = (clientX, clientY) => {
+    const el = document.elementFromPoint(clientX, clientY);
+    if (!el) return null;
+    const target = el.closest("[data-id]");
+    if (!target || target === dnd.draggingEl) return null;
+    return target;
+  };
+
+  const placePlaceholder = (overEl, clientY) => {
+    if (!overEl || !dnd.placeholder) return;
+
+    document.querySelectorAll("[data-id]").forEach(c => c.classList.remove("drop-hint"));
+    overEl.classList.add("drop-hint");
+
+    const rect = overEl.getBoundingClientRect();
+    const before = (clientY - rect.top) < rect.height / 2;
+
+    if (before) {
+      if (overEl.parentNode) overEl.parentNode.insertBefore(dnd.placeholder, overEl);
+    } else {
+      if (overEl.parentNode) overEl.parentNode.insertBefore(dnd.placeholder, overEl.nextSibling);
     }
-  }
+  };
 
-  function metricCard(label, value, gradient){
-    return `
-      <div class="rounded-3xl bg-gradient-to-br ${gradient} p-[1px]">
-        <div class="rounded-3xl bg-white p-4">
-          <div class="text-xs font-extrabold text-slate-600">${label}</div>
-          <div class="mt-2 text-2xl font-black tracking-tight">${value}</div>
-        </div>
-      </div>
-    `;
-  }
+  // Delegate pointer events from the board so we don't rebind on each render
+  board.addEventListener("pointerdown", (e) => {
+    const handle = e.target.closest(".handle");
+    if (!handle) return;
 
-  function setValue(id, value){
-    const el = document.getElementById(id);
-    if (el) el.value = value;
-  }
+    const wrap = handle.closest("[data-id]");
+    if (!wrap) return;
 
-  function setMoneyValue(id, value, currency){
-    const el = document.getElementById(id);
-    if (!el) return;
-    const maxDec = (currency === "VND") ? 0 : 2;
-    el.value = formatNumberInput(Number(value) || 0, maxDec);
-  }
+    // prevent focusing inputs while dragging
+    e.preventDefault();
 
-  // For formatted money fields: only commit on blur/change (avoid fighting cursor)
-  function onCommit(id, fn){
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener("change", (e) => fn(e.target.value));
-    el.addEventListener("blur", (e) => fn(e.target.value));
-  }
+    dnd.draggingEl = wrap;
+    dnd.draggingId = wrap.dataset.id;
+    dnd.activePointerId = e.pointerId;
 
-  // Wire currency controls (used in multiple money inputs)
-  function setCurrencyControls(selectId, customId){
-    const sel = document.getElementById(selectId);
-    const custom = document.getElementById(customId);
-    if (!sel || !custom) return;
+    const rect = wrap.getBoundingClientRect();
+    dnd.offsetX = e.clientX - rect.left;
+    dnd.offsetY = e.clientY - rect.top;
 
-    sel.value = state.inputs.currency;
-    custom.value = state.inputs.customCurrencyCode || "";
-    custom.classList.toggle("hidden", state.inputs.currency !== "CUSTOM");
+    wrap.classList.add("dragging");
+    dnd.placeholder = makePlaceholder(wrap);
+    wrap.parentNode.insertBefore(dnd.placeholder, wrap.nextSibling);
 
-    sel.addEventListener("change", () => {
-      state.inputs.currency = sel.value;
-      render();
-    });
+    dnd.ghost = makeGhost(wrap);
+    updateGhostPos(e.clientX, e.clientY);
 
-    custom.addEventListener("input", () => {
-      state.inputs.customCurrencyCode = (custom.value || "").toUpperCase();
-      // no full rerender needed on each key, but keep it simple
-      render();
-    });
-  }
+    handle.setPointerCapture?.(e.pointerId);
+  });
 
-  function onInput(id, fn){
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener("input", (e) => fn(e.target.value));
-    el.addEventListener("change", (e) => fn(e.target.value));
-  }
+  board.addEventListener("pointermove", (e) => {
+    if (!dnd.draggingEl || dnd.activePointerId !== e.pointerId) return;
+    updateGhostPos(e.clientX, e.clientY);
 
-  function wireToggle(id, checked, onChange){
-    const btn = document.getElementById(id);
-    if (!btn) return;
-    paintToggle(btn, checked);
-    btn.addEventListener("click", () => {
-      const next = !checked;
-      onChange(next);
-    });
-  }
+    const over = getDropTarget(e.clientX, e.clientY);
+    if (over) placePlaceholder(over, e.clientY);
+  });
 
-  function renderCharts(balanceData, yearlyInterestData, money){
-    const balanceCanvas = document.getElementById("balanceChart");
-    const interestCanvas = document.getElementById("interestChart");
-    if (!balanceCanvas || !interestCanvas) return;
+  board.addEventListener("pointerup", (e) => {
+    if (!dnd.draggingEl || dnd.activePointerId !== e.pointerId) return;
 
-    // destroy old
-    if (charts.balance) charts.balance.destroy();
-    if (charts.interest) charts.interest.destroy();
+    // drop: insert element at placeholder
+    if (dnd.placeholder && dnd.placeholder.parentNode) {
+      dnd.placeholder.parentNode.insertBefore(dnd.draggingEl, dnd.placeholder);
+    }
 
-    const balLabels = balanceData.map(d => d.date);
-    const balVals = balanceData.map(d => d.balance);
+    cleanupDnD();
+  });
 
-    charts.balance = new Chart(balanceCanvas, {
-      type: "line",
-      data: {
-        labels: balLabels,
-        datasets: [{
-          label: "Balance",
-          data: balVals,
-          borderWidth: 2,
-          pointRadius: 0,
-          tension: 0.25,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${money(Number(ctx.parsed.y))}`
-            }
-          },
-          legend: { display: false }
-        },
-        scales: {
-          x: { display: false },
-          y: {
-            ticks: { callback: (v) => money(Number(v)) },
-            grid: { drawBorder: false }
-          }
-        }
-      }
-    });
-
-    const yiLabels = yearlyInterestData.map(d => String(d.year));
-    const yiVals = yearlyInterestData.map(d => d.interest);
-
-    charts.interest = new Chart(interestCanvas, {
-      type: "bar",
-      data: {
-        labels: yiLabels,
-        datasets: [{
-          label: "Interest",
-          data: yiVals,
-          borderWidth: 0,
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          tooltip: {
-            callbacks: {
-              label: (ctx) => `${ctx.dataset.label}: ${money(Number(ctx.parsed.y))}`
-            }
-          },
-          legend: { display: false }
-        },
-        scales: {
-          y: {
-            ticks: { callback: (v) => money(Number(v)) },
-            grid: { drawBorder: false }
-          }
-        }
-      }
-    });
-  }
-
-  // -----------------------
-  // Drag & Drop
-  // -----------------------
-  let dragEl = null;
-
-  function wireDnD(){
-    // remove any old listeners by cloning handles (simple + effective)
-    document.querySelectorAll(".handle").forEach(h => {
-      const clone = h.cloneNode(true);
-      h.parentNode.replaceChild(clone, h);
-    });
-
-    document.querySelectorAll(".handle").forEach(handle => {
-      handle.addEventListener("dragstart", (e) => {
-        dragEl = handle.closest("[data-id]");
-        if (!dragEl) return;
-        dragEl.classList.add("dragging");
-        e.dataTransfer.setData("text/plain", dragEl.dataset.id);
-        e.dataTransfer.effectAllowed = "move";
-      });
-
-      handle.addEventListener("dragend", () => {
-        if (dragEl) dragEl.classList.remove("dragging");
-        document.querySelectorAll("[data-id]").forEach(c => c.classList.remove("drop-hint"));
-        dragEl = null;
-        // save order
-        const visibleOrder = Array.from(board.querySelectorAll("[data-id]")).map(x => x.dataset.id);
-        const hiddenOrder = layout.order.filter(id => !visibleOrder.includes(id));
-        layout.order = [...visibleOrder, ...hiddenOrder];
-        saveLayout(layout.order, layout.collapsed);
-      });
-    });
-
-    // dragover on board
-    board.addEventListener("dragover", (e) => {
-      if (!dragEl) return;
-      e.preventDefault();
-      const over = e.target.closest("[data-id]");
-      if (!over || over === dragEl) return;
-
-      document.querySelectorAll("[data-id]").forEach(c => c.classList.remove("drop-hint"));
-      over.classList.add("drop-hint");
-
-      const rect = over.getBoundingClientRect();
-      const before = (e.clientY - rect.top) < rect.height/2;
-      if (before) board.insertBefore(dragEl, over);
-      else board.insertBefore(dragEl, over.nextSibling);
-    }, { passive:false });
-
-    board.addEventListener("drop", (e) => {
-      e.preventDefault();
-    });
-  }
+  board.addEventListener("pointercancel", (e) => {
+    if (!dnd.draggingEl || dnd.activePointerId !== e.pointerId) return;
+    cleanupDnD();
+  });
 
   // -----------------------
   // Header buttons
@@ -1344,9 +1583,23 @@
       localStorage.removeItem(LS_VISIBLE);
     } catch {}
     layout = loadLayout();
-    visibility = loadVisibility();
     render();
   });
+
+  // -----------------------
+  // Tests (console)
+  // -----------------------
+  (function runTests(){
+    const assert = (name, cond) => {
+      if (!cond) console.error("❌ Test failed:", name);
+      else console.log("✅", name);
+    };
+
+    assert("formatNumberInput uses comma grouping", formatNumberInput(2000, 0) === "2,000");
+    assert("parseNumberInput strips commas", parseNumberInput("2,000") === 2000);
+    assert("term years clamp to 30", getTermPeriods({ termUnit:"years", termValue: 50, paymentsPerYear: 12 }) === 360);
+    assert("term months clamp to 360", getTermPeriods({ termUnit:"months", termValue: 999, paymentsPerYear: 12 }) === 360);
+  })();
 
   // initial render
   render();
