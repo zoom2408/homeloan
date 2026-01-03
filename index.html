@@ -1073,17 +1073,17 @@
     const stepAttr = step !== "" ? `step="${step}"` : "";
     const minAttr = min !== "" ? `min="${min}"` : "";
     const phAttr = placeholder ? `placeholder="${placeholder}"` : "";
-    return `<input id="${id}" type="${type}" ${stepAttr} ${minAttr} ${phAttr}
+    return `<input id="${id}" data-focus-key="${id}" type="${type}" ${stepAttr} ${minAttr} ${phAttr}
       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />`;
   }
 
   function termInput(valueId, unitId){
     return `
       <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
-        <input id="${valueId}" type="number" min="1"
+        <input id="${valueId}" data-focus-key="${valueId}" type="number" min="1"
           class="h-10 w-full bg-transparent px-3 text-sm text-slate-900 outline-none" />
         <div class="border-l border-slate-200 bg-slate-50 px-2 flex items-center">
-          <select id="${unitId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
+          <select id="${unitId}" data-focus-key="${unitId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
             <option value="years">Years (max 30)</option>
             <option value="months">Months (max 360)</option>
           </select>
@@ -1095,16 +1095,16 @@
   function moneyInput(id, currencySelectId, customCodeId){
     return `
       <div class="flex items-stretch overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm focus-within:ring-2 focus-within:ring-fuchsia-100 focus-within:border-fuchsia-300">
-        <input id="${id}" inputmode="decimal" autocomplete="off" spellcheck="false"
+        <input id="${id}" data-focus-key="${id}" inputmode="decimal" autocomplete="off" spellcheck="false"
           class="h-10 w-full bg-transparent px-3 text-sm text-slate-900 outline-none placeholder:text-slate-400" />
         <div class="flex items-center gap-2 border-l border-slate-200 bg-slate-50 px-2">
-          <select id="${currencySelectId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
+          <select id="${currencySelectId}" data-focus-key="${currencySelectId}" class="h-8 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100">
             <option value="VND">VND</option>
             <option value="USD">USD</option>
             <option value="EUR">EUR</option>
             <option value="CUSTOM">Custom</option>
           </select>
-          <input id="${customCodeId}" class="h-8 w-20 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100" placeholder="USD" />
+          <input id="${customCodeId}" data-focus-key="${customCodeId}" class="h-8 w-20 rounded-xl border border-slate-200 bg-white px-2 text-xs font-extrabold text-slate-700 outline-none focus:ring-2 focus:ring-fuchsia-100" placeholder="USD" />
         </div>
       </div>
     `;
@@ -1112,10 +1112,42 @@
 
   function selectInput(id, options){
     return `
-      <select id="${id}" class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100">
+      <select id="${id}" data-focus-key="${id}" class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100">
         ${options.map(o => `<option value="${o.value}">${o.label}</option>`).join("")}
       </select>
     `;
+  }
+
+  const focusableSelector = "input, select, textarea";
+
+  function captureFocus(){
+    const el = document.activeElement;
+    if (!el || !el.matches(focusableSelector)) return null;
+
+    const key = el.dataset.focusKey || el.id;
+    if (!key) return null;
+
+    return {
+      key,
+      selectionStart: el.selectionStart,
+      selectionEnd: el.selectionEnd,
+    };
+  }
+
+  function restoreFocus(info){
+    if (!info) return;
+
+    const target = document.querySelector(`[data-focus-key="${info.key}"]`) || document.getElementById(info.key);
+    if (!target || !target.matches(focusableSelector)) return;
+
+    target.focus({ preventScroll: true });
+
+    if (typeof info.selectionStart === "number" && typeof info.selectionEnd === "number" && target.setSelectionRange){
+      const len = typeof target.value === "string" ? target.value.length : 0;
+      const start = Math.min(info.selectionStart, len);
+      const end = Math.min(info.selectionEnd, len);
+      try { target.setSelectionRange(start, end); } catch {}
+    }
   }
 
   function toggleButton(id, label){
@@ -1184,15 +1216,15 @@
               ${sched.map((b, idx) => `
                 <tr class="${idx%2 ? "bg-white" : "bg-slate-50/30"}">
                   <td class="px-3 py-2">
-                    <input data-sched="${which}" data-idx="${idx}" data-key="startMonth" type="number" min="1" value="${b.startMonth}"
+                    <input data-sched="${which}" data-idx="${idx}" data-key="startMonth" data-focus-key="sched-${which}-${idx}-start" type="number" min="1" value="${b.startMonth}"
                       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />
                   </td>
                   <td class="px-3 py-2">
-                    <input data-sched="${which}" data-idx="${idx}" data-key="endMonth" type="number" min="${b.startMonth}" value="${b.endMonth}"
+                    <input data-sched="${which}" data-idx="${idx}" data-key="endMonth" data-focus-key="sched-${which}-${idx}-end" type="number" min="${b.startMonth}" value="${b.endMonth}"
                       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />
                   </td>
                   <td class="px-3 py-2">
-                    <input data-sched="${which}" data-idx="${idx}" data-key="annualRate" type="number" step="0.001" value="${b.annualRate}"
+                    <input data-sched="${which}" data-idx="${idx}" data-key="annualRate" data-focus-key="sched-${which}-${idx}-rate" type="number" step="0.001" value="${b.annualRate}"
                       class="h-10 w-full rounded-2xl border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-fuchsia-300 focus:ring-2 focus:ring-fuchsia-100" />
                     <div class="mt-1 text-[11px] text-slate-400">(decimal, e.g. 0.105)</div>
                   </td>
@@ -1334,6 +1366,7 @@
   }
 
   function render(){
+    const focusInfo = captureFocus();
     const scheduleSel = state.inputs.scenario === "A" ? state.scheduleA : state.scheduleB;
     const money = makeMoneyFormatter(state.inputs.currency, state.inputs.customCurrencyCode);
 
@@ -1690,6 +1723,8 @@
         render();
       };
     });
+
+    restoreFocus(focusInfo);
 
     // Export
     const exp = document.getElementById("exportCSV");
