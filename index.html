@@ -1494,9 +1494,8 @@
           <li>${t("scenarioIntroList4")}</li>
         </ul>
       </div>
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div class="lg:col-span-2 overflow-auto rounded-3xl border border-slate-200">
+      <div class="grid grid-cols-1 gap-4 lg:grid-cols-12">
+        <div class="lg:col-span-8 overflow-auto rounded-3xl border border-slate-200">
           <table class="min-w-full text-sm">
             <thead class="bg-slate-50">
               <tr class="text-left text-xs font-extrabold uppercase tracking-widest text-slate-500">
@@ -1522,7 +1521,7 @@
             </tbody>
           </table>
         </div>
-        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <div class="rounded-3xl border border-slate-200 bg-slate-50 p-4 lg:col-span-4">
           <div class="text-sm font-extrabold">${t("quickBadges")}</div>
             <div class="mt-2 flex flex-wrap gap-2">
               <span class="inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${state.inputs.scenario==="A"?"bg-indigo-100 text-indigo-800 ring-indigo-200":"bg-slate-100 text-slate-700 ring-slate-200"}">${t("selectedA")}</span>
