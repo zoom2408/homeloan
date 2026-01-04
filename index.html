@@ -102,7 +102,7 @@
     </div>
 
     <!-- Board (draggable sections) -->
-    <div id="board" class="grid grid-cols-1 gap-4"></div>
+    <div id="board" class="grid grid-cols-1 gap-4 lg:grid-cols-2"></div>
 
     <!-- Slideout menu -->
     <div id="menuOverlay" class="fixed inset-0 z-[10000] hidden">
@@ -1006,6 +1006,9 @@
 
     const wrap = document.createElement("div");
     wrap.dataset.id = id;
+    const gridClass = (id === "scheduleA" || id === "scheduleB") ? "col-span-1" : "col-span-1 lg:col-span-2";
+    wrap.className = gridClass;
+    wrap.dataset.gridClass = gridClass;
 
     wrap.innerHTML = `
       <div class="rounded-3xl border border-slate-200 card-glass shadow-sm overflow-hidden">
@@ -1797,7 +1800,8 @@
   const makePlaceholder = (el) => {
     const rect = el.getBoundingClientRect();
     const p = document.createElement("div");
-    p.className = "placeholder";
+    const gridClass = el.dataset.gridClass || "";
+    p.className = `placeholder ${gridClass}`.trim();
     p.style.height = rect.height + "px";
     return p;
   };
