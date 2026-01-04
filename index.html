@@ -441,6 +441,8 @@
       scenarioIntroList2: "<b>Scenario B</b>: Often used as an <i>alternative</i> (e.g. another bank, renegotiated rates, or optimistic path).",
       scenarioIntroList3: "You can freely edit the rate bands for each scenario below.",
       scenarioIntroList4: "The selector in <b>Inputs → Scenario</b> controls which scenario drives the charts and repayment table.",
+      scenarioLabelA: "Baseline (e.g. current bank offer)",
+      scenarioLabelB: "Alternative (e.g. different bank or optimistic)",
       metric: "Metric",
       quickBadges: "Quick badges",
       selectedA: "Selected A",
@@ -549,6 +551,8 @@
       scenarioIntroList2: "<b>Kịch bản B</b>: Thường là <i>phương án khác</i> (ví dụ: ngân hàng khác, đàm phán lại lãi, hoặc kịch bản lạc quan).",
       scenarioIntroList3: "Bạn có thể chỉnh sửa tự do các giai đoạn lãi cho từng kịch bản bên dưới.",
       scenarioIntroList4: "Bộ chọn trong <b>Thông tin vay → Kịch bản</b> quyết định kịch bản nào dùng cho biểu đồ và bảng hoàn trả.",
+      scenarioLabelA: "Mốc cơ sở (ví dụ: đề nghị hiện tại)",
+      scenarioLabelB: "Phương án khác (ví dụ: ngân hàng khác hoặc lạc quan)",
       metric: "Chỉ số",
       quickBadges: "Huy hiệu nhanh",
       selectedA: "Đã chọn A",
@@ -1413,8 +1417,8 @@
         ${inputField(t("paymentsPerYear"),t("paymentsPerYearHint"), textInput("paymentsPerYear","number","1","1"))}
         ${inputField(t("extraPayment"),t("extraPaymentHint"), moneyInput("extraPaymentMonthly","currency_e","customCurrencyCode_e"))}
         ${inputField(t("scenario"),"", selectInput("scenario", [
-          {value:"A", label:"A"},
-          {value:"B", label:"B"},
+          {value:"A", label:`A: ${t("scenarioLabelA")}`},
+          {value:"B", label:`B: ${t("scenarioLabelB")}`},
         ]))}
 
         <div class="md:col-span-3">
