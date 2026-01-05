@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Scenario Studio - Home Finance Tools</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root{ color-scheme: light; }
+    .bg-fintech{
+      background:
+        radial-gradient(900px 500px at 20% 0, rgba(217,70,239,.18), transparent 55%),
+        radial-gradient(900px 500px at 80% 0, rgba(99,102,241,.20), transparent 55%),
+        linear-gradient(to bottom, #f8fafc, white);
+    }
+    .card-glass{ background: rgba(255,255,255,.80); backdrop-filter: blur(10px); }
+    .no-scrollbar::-webkit-scrollbar{display:none;}
+    .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none;}
+    .tabular{ font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body class="bg-fintech text-slate-900 min-h-screen">
+  <nav class="fixed inset-x-0 top-0 z-30 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <div class="max-w-7xl mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-3">
+        <div class="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-lg font-extrabold text-white shadow">🏠</div>
+        <div class="leading-tight">
+          <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Simulation Lab</div>
+          <div class="text-base font-extrabold text-slate-900">Home Finance Tools</div>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-slate-700">
+        <a class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-slate-700 shadow-sm hover:bg-slate-50" href="index.html">Home Loan Simulator</a>
+        <span class="rounded-xl bg-slate-900 px-3 py-2 text-white shadow-sm shadow-slate-900/15">Scenario Studio</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-4 pt-24 pb-10 sm:px-6 lg:px-8 space-y-6">
+    <header class="rounded-[28px] border border-slate-200 card-glass shadow-sm">
+      <div class="p-6 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div>
+          <div class="inline-flex items-center gap-2">
+            <span class="inline-flex h-9 w-9 items-center justify-center rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 text-white shadow">🧮</span>
+            <h1 class="text-2xl font-extrabold tracking-tight">Scenario Studio</h1>
+          </div>
+          <p class="mt-2 max-w-2xl text-sm text-slate-600">
+            Model up to four savings and income situations to see how much you can comfortably borrow for your home budget.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
+          <span class="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 ring-1 ring-slate-200">Safety buffer rule: keep ~40% of your monthly surplus untouched.</span>
+        </div>
+      </div>
+    </header>
+
+    <section class="rounded-[28px] border border-slate-200 card-glass shadow-sm">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-6 py-4">
+        <div>
+          <div class="text-sm font-extrabold text-slate-900">Scenario inputs</div>
+          <p class="text-xs text-slate-600">Add up to four scenarios. We compute the affordable loan and pick the healthiest setup for you.</p>
+        </div>
+        <div class="flex items-center gap-2 text-xs font-semibold">
+          <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <span class="text-slate-700">Annual rate</span>
+            <input id="rateInput" type="number" step="0.1" value="8" class="w-16 rounded-lg border border-slate-200 px-2 py-1 text-right text-sm font-semibold text-slate-900" />
+            <span class="text-slate-500">%</span>
+          </label>
+          <label class="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+            <span class="text-slate-700">Tenor</span>
+            <input id="tenorInput" type="number" min="5" max="35" value="20" class="w-14 rounded-lg border border-slate-200 px-2 py-1 text-right text-sm font-semibold text-slate-900" />
+            <span class="text-slate-500">years</span>
+          </label>
+          <button id="addScenario" class="rounded-2xl bg-gradient-to-tr from-fuchsia-600 to-indigo-600 px-3 py-2 text-xs font-extrabold text-white shadow-sm shadow-fuchsia-500/30">Add scenario</button>
+        </div>
+      </div>
+      <div id="scenarioList" class="grid grid-cols-1 gap-4 p-6 md:grid-cols-2"></div>
+    </section>
+
+    <section class="rounded-[28px] border border-slate-200 card-glass shadow-sm p-6">
+      <div class="flex items-center justify-between gap-2">
+        <div>
+          <div class="text-sm font-extrabold text-slate-900">Recommendation</div>
+          <p class="text-xs text-slate-600">We score scenarios using cushion after payment, loan-to-budget fit, and cash runway.</p>
+        </div>
+        <button id="refreshBtn" class="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-extrabold text-slate-700 hover:bg-slate-50">Recalculate</button>
+      </div>
+      <div id="recommendation" class="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-2"></div>
+    </section>
+  </main>
+
+<script>
+  const scenarioList = document.getElementById('scenarioList');
+  const addScenarioBtn = document.getElementById('addScenario');
+  const rateInput = document.getElementById('rateInput');
+  const tenorInput = document.getElementById('tenorInput');
+  const recommendationEl = document.getElementById('recommendation');
+  const refreshBtn = document.getElementById('refreshBtn');
+
+  const formatMoney = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+  const pmt = (ratePerPeriod, nPeriods, presentValue) => {
+    if (nPeriods <= 0) return 0;
+    if (Math.abs(ratePerPeriod) < 1e-12) return presentValue / nPeriods;
+    const r = ratePerPeriod;
+    const pow = Math.pow(1 + r, nPeriods);
+    return (presentValue * r * pow) / (pow - 1);
+  };
+  const pvFromPayment = (ratePerPeriod, nPeriods, payment) => {
+    if (nPeriods <= 0 || payment <= 0) return 0;
+    if (Math.abs(ratePerPeriod) < 1e-12) return payment * nPeriods;
+    const r = ratePerPeriod;
+    const pow = Math.pow(1 + r, nPeriods);
+    return payment * (pow - 1) / (r * pow);
+  };
+
+  const scenarioTemplate = () => {
+    const id = crypto.randomUUID();
+    const wrapper = document.createElement('div');
+    wrapper.className = 'rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm backdrop-blur';
+    wrapper.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex-1">
+          <input type="text" value="Scenario" class="scenario-name w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-900" />
+          <p class="mt-1 text-[11px] text-slate-500">Tip: rename to "Starter home", "Stretch", or "Parents help".</p>
+        </div>
+        <button class="remove-btn text-slate-400 hover:text-rose-500" title="Remove" aria-label="Remove">✕</button>
+      </div>
+      <div class="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-700 sm:grid-cols-2">
+        <label class="flex flex-col gap-1">
+          <span class="font-semibold">Current saving amount</span>
+          <input type="number" min="0" class="input-saving rounded-xl border border-slate-200 px-3 py-2 text-right font-semibold" value="200000000" />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-semibold">House budget</span>
+          <input type="number" min="0" class="input-budget rounded-xl border border-slate-200 px-3 py-2 text-right font-semibold" value="3500000000" />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-semibold">Monthly salary</span>
+          <input type="number" min="0" class="input-salary rounded-xl border border-slate-200 px-3 py-2 text-right font-semibold" value="35000000" />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-semibold">Expense monthly</span>
+          <input type="number" min="0" class="input-expense rounded-xl border border-slate-200 px-3 py-2 text-right font-semibold" value="18000000" />
+        </label>
+        <label class="flex flex-col gap-1">
+          <span class="font-semibold">Saving each month</span>
+          <input type="number" min="0" class="input-monthly-saving rounded-xl border border-slate-200 px-3 py-2 text-right font-semibold" value="5000000" />
+        </label>
+        <div class="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+          <div class="font-semibold text-slate-800">Result</div>
+          <div class="mt-1 flex flex-col gap-1">
+            <div><span class="text-slate-500">Affordable loan:</span> <span class="affordable font-bold text-indigo-700">—</span></div>
+            <div><span class="text-slate-500">Estimated monthly payment:</span> <span class="payment font-semibold">—</span></div>
+            <div><span class="text-slate-500">Buffer after payment:</span> <span class="buffer font-semibold">—</span></div>
+            <div><span class="text-slate-500">Safety score:</span> <span class="score font-semibold">—</span></div>
+          </div>
+        </div>
+      </div>
+    `;
+    wrapper.dataset.id = id;
+    return wrapper;
+  };
+
+  const getScenarios = () => {
+    const rate = Number(rateInput.value) / 100;
+    const termYears = Math.max(1, Number(tenorInput.value) || 20);
+    const monthlyRate = rate / 12;
+    const termMonths = termYears * 12;
+
+    const scenarios = [];
+    scenarioList.querySelectorAll('[data-id]').forEach(card => {
+      const data = {
+        id: card.dataset.id,
+        name: card.querySelector('.scenario-name').value.trim() || 'Scenario',
+        saving: Number(card.querySelector('.input-saving').value) || 0,
+        budget: Number(card.querySelector('.input-budget').value) || 0,
+        salary: Number(card.querySelector('.input-salary').value) || 0,
+        expense: Number(card.querySelector('.input-expense').value) || 0,
+        monthlySaving: Number(card.querySelector('.input-monthly-saving').value) || 0,
+      };
+      const targetBudget = Math.max(0, data.budget - data.saving);
+      const surplus = Math.max(0, data.salary - data.expense - data.monthlySaving);
+      const safePayment = surplus * 0.6; // keep 40% buffer for life happens
+      const affordableLoan = Math.min(targetBudget, pvFromPayment(monthlyRate, termMonths, safePayment));
+      const payment = pmt(monthlyRate, termMonths, affordableLoan);
+      const buffer = surplus - payment;
+      const budgetFit = affordableLoan <= 0 ? 0 : affordableLoan / Math.max(targetBudget, 1);
+      const safetyScore = Math.max(0, buffer) * 0.6 + budgetFit * 40 + Math.min(24, surplus / 1000000);
+
+      scenarios.push({ ...data, targetBudget, surplus, safePayment, affordableLoan, payment, buffer, budgetFit, safetyScore, monthlyRate, termMonths });
+    });
+    return scenarios;
+  };
+
+  const renderScenarios = () => {
+    const scenarios = getScenarios();
+    scenarioList.querySelectorAll('[data-id]').forEach(card => {
+      const data = scenarios.find(s => s.id === card.dataset.id);
+      if (!data) return;
+      card.querySelector('.affordable').textContent = data.affordableLoan > 0 ? `${formatMoney(Math.round(data.affordableLoan))} ₫` : 'Not enough surplus';
+      card.querySelector('.payment').textContent = data.payment > 0 ? `${formatMoney(Math.round(data.payment))} ₫/mo` : '—';
+      card.querySelector('.buffer').textContent = data.buffer ? `${formatMoney(Math.round(data.buffer))} ₫` : '—';
+      card.querySelector('.score').textContent = data.safetyScore.toFixed(1);
+    });
+
+    if (!scenarios.length) {
+      recommendationEl.innerHTML = '<div class="rounded-2xl border border-slate-200 bg-white/70 p-4 text-sm text-slate-600">Add at least one scenario to see a recommendation.</div>';
+      return;
+    }
+
+    const best = scenarios.slice().sort((a, b) => b.safetyScore - a.safetyScore)[0];
+    const reason = [
+      `Affordable loan: <b>${formatMoney(Math.round(best.affordableLoan))} ₫</b>`,
+      `Leaves buffer of <b>${formatMoney(Math.round(best.buffer))} ₫</b> after mortgage`,
+      `Fits <b>${Math.min(100, Math.round(best.budgetFit * 100))}%</b> of the target house budget`
+    ];
+    recommendationEl.innerHTML = `
+      <div class="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+        <div class="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Suggested pick</div>
+        <div class="mt-1 text-lg font-extrabold text-slate-900">${best.name}</div>
+        <p class="mt-1 text-sm text-slate-600">${reason.join(' · ')}</p>
+        <dl class="mt-4 grid grid-cols-1 gap-3 text-sm text-slate-700 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <dt class="text-xs uppercase tracking-[0.12em] text-slate-500">Affordable loan</dt>
+            <dd class="mt-1 text-lg font-extrabold text-indigo-700">${formatMoney(Math.round(best.affordableLoan))} ₫</dd>
+            <p class="text-[11px] text-slate-500">Capped by your surplus and house budget after savings.</p>
+          </div>
+          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <dt class="text-xs uppercase tracking-[0.12em] text-slate-500">Expected monthly payment</dt>
+            <dd class="mt-1 text-lg font-extrabold text-slate-900">${formatMoney(Math.round(best.payment))} ₫</dd>
+            <p class="text-[11px] text-slate-500">Rate ${(Number(rateInput.value)||0).toFixed(1)}% · ${Math.round(best.termMonths/12)}y tenor.</p>
+          </div>
+          <div class="rounded-xl border border-slate-100 bg-slate-50 p-3">
+            <dt class="text-xs uppercase tracking-[0.12em] text-slate-500">After-payment buffer</dt>
+            <dd class="mt-1 text-lg font-extrabold text-emerald-700">${formatMoney(Math.round(best.buffer))} ₫</dd>
+            <p class="text-[11px] text-slate-500">Higher buffer = more resilience to rate rises or life events.</p>
+          </div>
+        </dl>
+      </div>
+      <div class="rounded-2xl border border-dashed border-indigo-200 bg-indigo-50/60 p-4 text-xs text-indigo-900">
+        <div class="font-semibold text-indigo-900">How we score scenarios</div>
+        <ul class="mt-2 list-disc pl-4 space-y-1">
+          <li>Uses only ~60% of your monthly surplus for repayments to keep a safety margin.</li>
+          <li>Prefers scenarios that cover more of the target house budget after using your savings.</li>
+          <li>Rewards larger leftover buffer and healthier surplus-to-payment ratio.</li>
+        </ul>
+      </div>
+    `;
+  };
+
+  const addScenario = () => {
+    if (scenarioList.children.length >= 4) return alert('You can only compare up to four scenarios.');
+    const card = scenarioTemplate();
+    scenarioList.appendChild(card);
+    card.querySelectorAll('input').forEach(el => el.addEventListener('input', renderScenarios));
+    card.querySelector('.remove-btn').addEventListener('click', () => {
+      card.remove();
+      renderScenarios();
+    });
+    renderScenarios();
+  };
+
+  addScenarioBtn.addEventListener('click', addScenario);
+  refreshBtn.addEventListener('click', renderScenarios);
+  rateInput.addEventListener('input', renderScenarios);
+  tenorInput.addEventListener('input', renderScenarios);
+
+  // seed with two sample scenarios
+  addScenario();
+  addScenario();
+  scenarioList.querySelectorAll('[data-id]')[1]?.querySelector('.scenario-name').value = 'Stretch';
+  scenarioList.querySelectorAll('[data-id]')[1]?.querySelector('.input-budget').value = 4500000000;
+  renderScenarios();
+</script>
+</body>
+</html>
