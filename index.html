@@ -1177,6 +1177,7 @@
       key,
       selectionStart: el.selectionStart,
       selectionEnd: el.selectionEnd,
+      value: typeof el.value === "string" ? el.value : undefined,
     };
   }
 
@@ -1185,6 +1186,10 @@
 
     const target = document.querySelector(`[data-focus-key="${info.key}"]`) || document.getElementById(info.key);
     if (!target || !target.matches(focusableSelector)) return;
+
+    if (typeof info.value === "string") {
+      target.value = info.value;
+    }
 
     target.focus({ preventScroll: true });
 
