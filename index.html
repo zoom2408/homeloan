@@ -282,6 +282,8 @@
     const ppY = inputs.paymentsPerYear;
     const graceMonths = inputs.graceEnabled ? Math.max(0, Math.floor(inputs.graceMonths)) : 0;
     const flatInterestBase = Math.max(0, inputs.principal);
+    const repayPeriods = Math.max(1, nTotal - graceMonths);
+    const basePrincipalPerPeriod = flatInterestBase / repayPeriods;
 
     const rows = [];
     let bal = inputs.principal;
@@ -298,26 +300,20 @@
       const inGrace = inputs.graceEnabled && period <= graceMonths;
       const note = inGrace ? `Grace: ${inputs.graceType}` : "";
 
-      const interestBase = inputs.interestMode === "flat" ? flatInterestBase : begin;
-      const interest = interestBase * monthlyRate;
+      const interestBaseCandidate = inputs.interestMode === "flat" ? flatInterestBase : begin;
+      const interest = begin > 0 ? interestBaseCandidate * monthlyRate : 0;
 
       let payment = 0;
+      let principalPaid = 0;
       if (begin <= 0) {
         payment = 0;
       } else if (inGrace) {
         payment = inputs.graceType === "full" ? 0 : interest;
       } else {
-        const remaining = nTotal - period + 1;
-        if (inputs.interestMode === "flat") {
-          const principalSlice = remaining > 0 ? begin / remaining : begin;
-          payment = principalSlice + interest;
-        } else {
-          payment = pmt(monthlyRate, remaining, begin);
-        }
-        payment = Math.min(payment, begin + interest);
+        const principalDue = Math.min(basePrincipalPerPeriod, begin);
+        principalPaid = principalDue;
+        payment = principalDue + interest;
       }
-
-      const principalPaid = Math.max(0, payment - interest);
 
       const extra =
         begin <= 0 ? 0 : (inGrace ? 0 : Math.min(Math.max(0, inputs.extraPaymentMonthly), Math.max(0, begin - principalPaid)));
