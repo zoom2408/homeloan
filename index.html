@@ -630,7 +630,7 @@
     try { localStorage.setItem(LANG_LS_KEY, currentLanguage); } catch {}
     applyLanguage();
     refreshStaticText();
-    render();
+    scheduleRender();
     renderMenu();
   }
 
@@ -670,6 +670,16 @@
       { startMonth: 61, endMonth: 240, annualRate: 0.102 },
     ],
   };
+
+  let renderQueued = false;
+  function scheduleRender(){
+    if (renderQueued) return;
+    renderQueued = true;
+    requestAnimationFrame(() => {
+      renderQueued = false;
+      render();
+    });
+  }
 
   // -----------------------
   // Layout persistence
@@ -863,7 +873,7 @@
         for (const rid of REQUIRED_SECTIONS) layout.visible[rid] = true;
 
         saveLayout(layout.order, layout.collapsed, layout.visible);
-        render();
+        scheduleRender();
         renderMenu();
       };
     });
@@ -1003,14 +1013,14 @@
       cleanupMenuDnD();
 
       // Live update: reflect new order immediately
-      render();
+      scheduleRender();
       renderMenu();
     });
 
     menuList.addEventListener("pointercancel", (e) => {
       if (!menuDnd.draggingEl || menuDnd.activePointerId !== e.pointerId) return;
       cleanupMenuDnD();
-      render();
+      scheduleRender();
       renderMenu();
     });
   }
@@ -1084,11 +1094,11 @@
       </div>
     `;
 
-    wrap.querySelector(".toggle").addEventListener("click", () => {
-      layout.collapsed[id] = !layout.collapsed[id];
-      saveLayout(layout.order, layout.collapsed, layout.visible);
-      render();
-    });
+      wrap.querySelector(".toggle").addEventListener("click", () => {
+        layout.collapsed[id] = !layout.collapsed[id];
+        saveLayout(layout.order, layout.collapsed, layout.visible);
+        scheduleRender();
+      });
 
     return wrap;
   }
@@ -1331,12 +1341,12 @@
 
     sel.onchange = () => {
       state.inputs.currency = sel.value;
-      render();
+      scheduleRender();
     };
 
     custom.oninput = () => {
       state.inputs.customCurrencyCode = (custom.value || "").toUpperCase();
-      render();
+      scheduleRender();
     };
   }
 
@@ -1683,40 +1693,40 @@
     setCurrencyControls("currency_e","customCurrencyCode_e");
     setValue("scenario", state.inputs.scenario);
 
-    onCommit("principal", (v)=>{ state.inputs.principal = Math.max(0, parseNumberInput(v)); render(); });
-    onInput("startDateISO", (v)=>{ state.inputs.startDateISO = v || state.inputs.startDateISO; render(); });
+    onCommit("principal", (v)=>{ state.inputs.principal = Math.max(0, parseNumberInput(v)); scheduleRender(); });
+    onInput("startDateISO", (v)=>{ state.inputs.startDateISO = v || state.inputs.startDateISO; scheduleRender(); });
 
-    onInput("termValue", (v)=>{
-      const n = Number(v)||1;
-      if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(n), 1, 360);
-      else state.inputs.termValue = clamp(n, 1, 30);
-      render();
-    });
+      onInput("termValue", (v)=>{
+        const n = Number(v)||1;
+        if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(n), 1, 360);
+        else state.inputs.termValue = clamp(n, 1, 30);
+        scheduleRender();
+      });
 
     onInput("termUnit", (u)=>{
       state.inputs.termUnit = (u === "months") ? "months" : "years";
       if (state.inputs.termUnit === "months") state.inputs.termValue = clamp(Math.floor(state.inputs.termValue||1), 1, 360);
       else state.inputs.termValue = clamp(Number(state.inputs.termValue||1), 1, 30);
-      render();
+      scheduleRender();
     });
 
-    onInput("paymentsPerYear", (v)=>{ state.inputs.paymentsPerYear = clamp(Number(v)||12, 1, 365); render(); });
-    onInput("interestMode", (v)=>{ state.inputs.interestMode = v === "flat" ? "flat" : "declining"; render(); });
-    onCommit("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, parseNumberInput(v)); render(); });
-    onInput("scenario", (v)=>{ state.inputs.scenario = v === "B" ? "B" : "A"; render(); });
+    onInput("paymentsPerYear", (v)=>{ state.inputs.paymentsPerYear = clamp(Number(v)||12, 1, 365); scheduleRender(); });
+    onInput("interestMode", (v)=>{ state.inputs.interestMode = v === "flat" ? "flat" : "declining"; scheduleRender(); });
+    onCommit("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, parseNumberInput(v)); scheduleRender(); });
+    onInput("scenario", (v)=>{ state.inputs.scenario = v === "B" ? "B" : "A"; scheduleRender(); });
 
     // Grace + jumps
-    wireToggle("graceEnabled", state.inputs.graceEnabled, (nv)=>{ state.inputs.graceEnabled = nv; render(); });
+    wireToggle("graceEnabled", state.inputs.graceEnabled, (nv)=>{ state.inputs.graceEnabled = nv; scheduleRender(); });
     setValue("graceType", state.inputs.graceType);
     setValue("graceMonths", state.inputs.graceMonths);
-    onInput("graceType", (v)=>{ state.inputs.graceType = v; render(); });
-    onInput("graceMonths", (v)=>{ state.inputs.graceMonths = Math.max(0, Math.floor(Number(v)||0)); render(); });
-    wireToggle("capitalizeFullGraceInterest", state.inputs.capitalizeFullGraceInterest, (nv)=>{ state.inputs.capitalizeFullGraceInterest = nv; render(); });
+    onInput("graceType", (v)=>{ state.inputs.graceType = v; scheduleRender(); });
+    onInput("graceMonths", (v)=>{ state.inputs.graceMonths = Math.max(0, Math.floor(Number(v)||0)); scheduleRender(); });
+    wireToggle("capitalizeFullGraceInterest", state.inputs.capitalizeFullGraceInterest, (nv)=>{ state.inputs.capitalizeFullGraceInterest = nv; scheduleRender(); });
 
-    wireToggle("showPaymentJumps", state.inputs.showPaymentJumps, (nv)=>{ state.inputs.showPaymentJumps = nv; render(); });
+    wireToggle("showPaymentJumps", state.inputs.showPaymentJumps, (nv)=>{ state.inputs.showPaymentJumps = nv; scheduleRender(); });
     setMoneyValue("jumpThreshold", state.inputs.jumpThreshold, state.inputs.currency);
     setCurrencyControls("currency_j","customCurrencyCode_j");
-    onCommit("jumpThreshold", (v)=>{ state.inputs.jumpThreshold = Math.max(0, parseNumberInput(v)); render(); });
+    onCommit("jumpThreshold", (v)=>{ state.inputs.jumpThreshold = Math.max(0, parseNumberInput(v)); scheduleRender(); });
 
     // Schedules
     document.querySelectorAll("[data-add-band]").forEach(btn => {
@@ -1727,7 +1737,7 @@
         const start = last ? last.endMonth + 1 : 1;
         target.push({ startMonth: start, endMonth: start + 11, annualRate: last ? last.annualRate : 0.085 });
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
-        render();
+        scheduleRender();
       };
     });
 
@@ -1735,7 +1745,7 @@
       btn.onclick = () => {
         const which = btn.getAttribute("data-auto-bands");
         autoYearlyBands(which);
-        render();
+        scheduleRender();
       };
     });
 
@@ -1746,7 +1756,7 @@
         const target = normalizeSchedule(which === "A" ? state.scheduleA : state.scheduleB);
         target.splice(idx, 1);
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
-        render();
+        scheduleRender();
       };
     });
 
@@ -1761,7 +1771,7 @@
         if (key === "endMonth") target[idx].endMonth = Math.max(1, Math.floor(val||1));
         if (key === "annualRate") target[idx].annualRate = Number.isFinite(val) ? val : 0;
         if (which === "A") state.scheduleA = target; else state.scheduleB = target;
-        render();
+        scheduleRender();
       };
     });
 
@@ -1932,15 +1942,15 @@
   // -----------------------
   // Header buttons
   // -----------------------
-  document.getElementById("resetLayoutBtn").addEventListener("click", () => {
-    try {
-      localStorage.removeItem(LS_ORDER);
-      localStorage.removeItem(LS_COLLAPSED);
-      localStorage.removeItem(LS_VISIBLE);
-    } catch {}
-    layout = loadLayout();
-    render();
-  });
+    document.getElementById("resetLayoutBtn").addEventListener("click", () => {
+      try {
+        localStorage.removeItem(LS_ORDER);
+        localStorage.removeItem(LS_COLLAPSED);
+        localStorage.removeItem(LS_VISIBLE);
+      } catch {}
+      layout = loadLayout();
+      scheduleRender();
+    });
 
   // -----------------------
   // Tests (console)
