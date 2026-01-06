@@ -281,6 +281,7 @@
     const nTotal = getTermPeriods(inputs);
     const ppY = inputs.paymentsPerYear;
     const graceMonths = inputs.graceEnabled ? Math.max(0, Math.floor(inputs.graceMonths)) : 0;
+    const flatInterestBase = Math.max(0, inputs.principal);
 
     const rows = [];
     let bal = inputs.principal;
@@ -297,7 +298,8 @@
       const inGrace = inputs.graceEnabled && period <= graceMonths;
       const note = inGrace ? `Grace: ${inputs.graceType}` : "";
 
-      const interest = begin * monthlyRate;
+      const interestBase = inputs.interestMode === "flat" ? flatInterestBase : begin;
+      const interest = interestBase * monthlyRate;
 
       let payment = 0;
       if (begin <= 0) {
@@ -306,7 +308,12 @@
         payment = inputs.graceType === "full" ? 0 : interest;
       } else {
         const remaining = nTotal - period + 1;
-        payment = pmt(monthlyRate, remaining, begin);
+        if (inputs.interestMode === "flat") {
+          const principalSlice = remaining > 0 ? begin / remaining : begin;
+          payment = principalSlice + interest;
+        } else {
+          payment = pmt(monthlyRate, remaining, begin);
+        }
         payment = Math.min(payment, begin + interest);
       }
 
@@ -431,6 +438,10 @@
       extraPayment: "Extra payment / month",
       extraPaymentHint: "after grace",
       scenario: "Scenario",
+      interestMode: "Interest calculation",
+      interestModeHint: "How interest is computed",
+      interestModeDeclining: "Declining balance (interest shrinks as you repay)",
+      interestModeFlat: "Flat (same interest every period on original principal)",
       moneyFormatNote: "Money fields format with <b>comma</b> thousands and <b>dot</b> decimals after you leave the field.",
       enableGrace: "Enable grace period",
       graceType: "Grace type",
@@ -541,6 +552,10 @@
       extraPayment: "Trả thêm mỗi tháng",
       extraPaymentHint: "sau ân hạn",
       scenario: "Kịch bản",
+      interestMode: "Cách tính lãi",
+      interestModeHint: "Tính lãi suất như thế nào",
+      interestModeDeclining: "Dư nợ giảm dần (tiền lãi giảm dần theo dư nợ)",
+      interestModeFlat: "Lãi phẳng (tiền lãi cố định theo gốc ban đầu)",
       moneyFormatNote: "Ô tiền sẽ định dạng <b>dấu phẩy</b> cho hàng nghìn và <b>dấu chấm</b> cho thập phân sau khi rời khỏi ô.",
       enableGrace: "Bật thời gian ân hạn",
       graceType: "Loại ân hạn",
@@ -634,6 +649,7 @@
       termValue: 20,
       paymentsPerYear: 12,
       extraPaymentMonthly: 0,
+      interestMode: "declining", // declining | flat
 
       graceEnabled: false,
       graceType: "interest_only", // interest_only | full
@@ -1432,6 +1448,10 @@
         ${inputField(t("term"),t("termHint"), termInput("termValue","termUnit"))}
 
         ${inputField(t("paymentsPerYear"),t("paymentsPerYearHint"), textInput("paymentsPerYear","number","1","1"))}
+        ${inputField(t("interestMode"),t("interestModeHint"), selectInput("interestMode", [
+          {value:"declining", label:t("interestModeDeclining")},
+          {value:"flat", label:t("interestModeFlat")},
+        ]))}
         ${inputField(t("extraPayment"),t("extraPaymentHint"), moneyInput("extraPaymentMonthly","currency_e","customCurrencyCode_e"))}
         ${inputField(t("scenario"),"", selectInput("scenario", [
           {value:"A", label:`A: ${t("scenarioLabelA")}`},
@@ -1662,6 +1682,7 @@
     setValue("termValue", state.inputs.termValue);
     setValue("termUnit", state.inputs.termUnit);
     setValue("paymentsPerYear", state.inputs.paymentsPerYear);
+    setValue("interestMode", state.inputs.interestMode);
     setMoneyValue("extraPaymentMonthly", state.inputs.extraPaymentMonthly, state.inputs.currency);
     setCurrencyControls("currency_e","customCurrencyCode_e");
     setValue("scenario", state.inputs.scenario);
@@ -1684,6 +1705,7 @@
     });
 
     onInput("paymentsPerYear", (v)=>{ state.inputs.paymentsPerYear = clamp(Number(v)||12, 1, 365); render(); });
+    onInput("interestMode", (v)=>{ state.inputs.interestMode = v === "flat" ? "flat" : "declining"; render(); });
     onCommit("extraPaymentMonthly", (v)=>{ state.inputs.extraPaymentMonthly = Math.max(0, parseNumberInput(v)); render(); });
     onInput("scenario", (v)=>{ state.inputs.scenario = v === "B" ? "B" : "A"; render(); });
 
